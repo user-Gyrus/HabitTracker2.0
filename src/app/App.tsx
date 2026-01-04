@@ -25,6 +25,46 @@ export default function App() {
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
   const [habits, setHabits] = useState<Habit[]>([]);
+useEffect(() => {
+  if (!session) return;
+
+  const fetchHabits = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const { data, error } = await supabase
+      .from("habits")
+      .select(`
+        id,
+        name,
+        micro_identity,
+        goal,
+        habit_completions (
+          completed,
+          completion_date
+        )
+      `)
+      .eq("habit_completions.completion_date", today)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("FETCH HABITS ERROR:", error);
+      return;
+    }
+
+    const normalized = (data ?? []).map((h: any) => ({
+      id: h.id,
+      name: h.name,
+      micro_identity: h.micro_identity,
+      goal: h.goal,
+      completed_today: h.habit_completions?.[0]?.completed ?? false,
+    }));
+
+    setHabits(normalized);
+  };
+
+  fetchHabits();
+}, [session]);
+
 
   /* ---------------------------
      AUTH SESSION (PERSISTENT)
@@ -67,27 +107,31 @@ export default function App() {
   /* ---------------------------
      CREATE HABIT
   ---------------------------- */
-  const handleCreateHabit = async (habit: any): Promise<void> => {
-    if (!session) return;
+const handleCreateHabit = async (habit: any): Promise<void> => {
+  if (!session) return;
 
-    const { data, error } = await supabase
-      .from("habits")
-      .insert({
-        user_id: session.user.id,
-        name: habit.name,
-        micro_identity: habit.microIdentity,
-        habit_type: habit.type,
-        goal: habit.goal,
-        active_days: habit.activeDays,
-      })
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from("habits")
+    .insert({
+      user_id: session.user.id,
+      name: habit.name,
+      micro_identity: habit.microIdentity,
+      habit_type: habit.type,
+      goal: habit.goal,
+      active_days: habit.days, 
+    })
+    .select()
+    .single();
 
-    if (!error && data) {
-      setHabits((prev) => [...prev, data]);
-      setCurrentScreen("habits");
-    }
-  };
+  if (error) {
+    console.error("Create habit failed:", error);
+    return;
+  }
+
+  setHabits((prev) => [...prev, data]);
+  setCurrentScreen("habits");
+};
+
 
   /* ---------------------------
      COMPLETE HABIT (TODAY)
@@ -167,7 +211,10 @@ export default function App() {
           currentScreen={currentScreen}
           onNavigate={setCurrentScreen}
         />
+        
+
       </div>
     </div>
+
   );
 }

@@ -18,20 +18,18 @@ export function LoginScreen({ onLogin }: Props) {
     setError(null);
 
     if (!email || !password) {
-      setError("Email and password required");
+      setError("Email and password are required");
       return;
     }
 
     if (isSignup && (!displayName || !username)) {
-      setError("Display name and username required");
+      setError("Display name and username are required");
       return;
     }
 
     setLoading(true);
 
-    /* ---------------------------
-       SIGN UP
-    ---------------------------- */
+    /* ---------- SIGN UP ---------- */
     if (isSignup) {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -46,14 +44,11 @@ export function LoginScreen({ onLogin }: Props) {
 
       const userId = data.user.id;
 
-      // CREATE PROFILE
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: userId,
-          display_name: displayName,
-          username,
-        });
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: userId,
+        display_name: displayName,
+        username,
+      });
 
       if (profileError) {
         setError(profileError.message);
@@ -61,7 +56,6 @@ export function LoginScreen({ onLogin }: Props) {
         return;
       }
 
-      // CREATE STREAK
       await supabase.from("streaks").insert({
         user_id: userId,
         current_streak: 0,
@@ -72,9 +66,7 @@ export function LoginScreen({ onLogin }: Props) {
       return;
     }
 
-    /* ---------------------------
-       LOGIN
-    ---------------------------- */
+    /* ---------- LOGIN ---------- */
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -90,18 +82,19 @@ export function LoginScreen({ onLogin }: Props) {
   };
 
   return (
-  <div className="flex flex-col gap-4">
-
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#3d2817] to-[#1a1410] text-white px-4">
-      <div className="w-full max-w-sm space-y-5">
+      <div className="w-full max-w-sm rounded-2xl bg-[#1f1611]/80 backdrop-blur p-6 shadow-xl space-y-6">
+
+        {/* Title */}
         <h1 className="text-2xl font-semibold text-center">
           {isSignup ? "Create Account" : "Welcome Back"}
         </h1>
 
+        {/* Signup-only fields */}
         {isSignup && (
-          <>
+          <div className="space-y-3">
             <input
-              placeholder="Display Name"
+              placeholder="Display name"
               className="input"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -112,9 +105,10 @@ export function LoginScreen({ onLogin }: Props) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
-          </>
+          </div>
         )}
 
+        {/* Email */}
         <input
           type="email"
           placeholder="Email"
@@ -123,6 +117,7 @@ export function LoginScreen({ onLogin }: Props) {
           onChange={(e) => setEmail(e.target.value)}
         />
 
+        {/* Password */}
         <input
           type="password"
           placeholder="Password"
@@ -131,30 +126,38 @@ export function LoginScreen({ onLogin }: Props) {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {/* Error */}
+        {error && (
+          <p className="text-sm text-red-400 text-center">{error}</p>
+        )}
 
+        {/* Submit */}
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-orange-600 py-3 rounded-xl font-medium"
+          className="w-full bg-orange-600 hover:bg-orange-500 disabled:bg-orange-900/50 py-3 rounded-xl font-medium transition"
         >
-          {loading ? "Please wait…" : isSignup ? "Create Account" : "Login"}
+          {loading
+            ? "Please wait…"
+            : isSignup
+            ? "Create Account"
+            : "Login"}
         </button>
 
+        {/* Toggle */}
         <p className="text-sm text-center text-neutral-400">
           {isSignup ? "Already have an account?" : "New here?"}{" "}
           <button
-            className="text-orange-400"
             onClick={() => {
               setIsSignup(!isSignup);
               setError(null);
             }}
+            className="text-orange-400 hover:underline"
           >
             {isSignup ? "Login" : "Create account"}
           </button>
         </p>
       </div>
-    </div>
     </div>
   );
 }
