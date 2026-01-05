@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { v4 as uuidv4 } from "uuid";
 
 type Props = {
-  onLogin: () => void;
+  onLogin: (user: any) => void;
 };
 
 export function LoginScreen({ onLogin }: Props) {
@@ -17,6 +17,7 @@ export function LoginScreen({ onLogin }: Props) {
   const handleSubmit = async () => {
     setError(null);
 
+    // Basic Validation
     if (!email || !password) {
       setError("Email and password are required");
       return;
@@ -29,56 +30,20 @@ export function LoginScreen({ onLogin }: Props) {
 
     setLoading(true);
 
-    /* ---------- SIGN UP ---------- */
-    if (isSignup) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-      if (error || !data.user) {
-        setError(error?.message ?? "Signup failed");
-        setLoading(false);
-        return;
-      }
-
-      const userId = data.user.id;
-
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: userId,
-        display_name: displayName,
-        username,
-      });
-
-      if (profileError) {
-        setError(profileError.message);
-        setLoading(false);
-        return;
-      }
-
-      await supabase.from("streaks").insert({
-        user_id: userId,
-        current_streak: 0,
-      });
-
-      setLoading(false);
-      onLogin();
-      return;
-    }
-
-    /* ---------- LOGIN ---------- */
-    const { error } = await supabase.auth.signInWithPassword({
+    // Mock User Object
+    const mockUser = {
+      id: uuidv4(),
       email,
-      password,
-    });
+      display_name: isSignup ? displayName : "Demo User",
+      username: isSignup ? username : "demouser",
+      role: "authenticated",
+    };
 
     setLoading(false);
-
-    if (error) {
-      setError(error.message);
-    } else {
-      onLogin();
-    }
+    onLogin(mockUser);
   };
 
   return (
@@ -140,7 +105,7 @@ export function LoginScreen({ onLogin }: Props) {
           {loading
             ? "Please wait…"
             : isSignup
-            ? "Create Account"
+            ? "Start Journey"
             : "Login"}
         </button>
 
