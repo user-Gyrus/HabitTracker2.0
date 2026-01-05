@@ -100,6 +100,7 @@ export default function App() {
       habit_type: habitData.type,
       goal: habitData.goal,
       active_days: habitData.days,
+      reminder_time: habitData.reminderEnabled ? habitData.reminderTime : null,
       created_at: new Date().toISOString(),
       completions: [],
     };
@@ -123,7 +124,7 @@ export default function App() {
     const stored = localStorage.getItem(STORAGE_KEY_HABITS);
     let allHabits: Habit[] = stored ? JSON.parse(stored) : [];
 
-    allHabits = allHabits.map(h => {
+    const updated = allHabits.map(h => {
         if (h.id === habitId) {
             // Avoid duplicates
             if (!h.completions.includes(today)) {
@@ -133,11 +134,26 @@ export default function App() {
         return h;
     });
 
-    localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(allHabits));
-    
-    // Update local state immediately
-    setHabits(prev => prev.map(h => h.id === habitId ? { ...h, completed_today: true } : h));
+    localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(updated));
+    setHabits(prev => 
+        prev.map(h => h.id === habitId ? { ...h, completed_today: true } : h)
+    );
   };
+
+  /* ---------------------------
+     DELETE HABIT
+  ---------------------------- */
+  const handleDeleteHabit = (habitId: string) => {
+    const stored = localStorage.getItem(STORAGE_KEY_HABITS);
+    if (!stored) return;
+    
+    const allHabits: Habit[] = JSON.parse(stored);
+    const updated = allHabits.filter(h => h.id !== habitId);
+    
+    localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(updated));
+    setHabits(prev => prev.filter(h => h.id !== habitId));
+  };
+
 
   /* ---------------------------
      AUTH GATE
@@ -168,7 +184,9 @@ export default function App() {
               >
                 <HabitsScreen
                   habits={habits}
+                  userName={session?.display_name || session?.username}
                   onCompleteHabit={handleCompleteHabit}
+                  onDeleteHabit={handleDeleteHabit}
                   onNavigate={setCurrentScreen}
                 />
               </motion.div>

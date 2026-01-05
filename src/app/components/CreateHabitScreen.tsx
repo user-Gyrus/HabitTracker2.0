@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, ChevronRight, User } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, User, Clock } from 'lucide-react';
 import * as Switch from '@radix-ui/react-switch';
 
 interface CreateHabitScreenProps {
@@ -13,6 +13,8 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   const [habitName, setHabitName] = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00'); // Added missing state
+  const timeInputRef = useRef<HTMLInputElement>(null);
 
   const days = [
     { num: 1, label: 'M' },
@@ -39,6 +41,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       type: habitType,
       days: selectedDays,
       reminderEnabled,
+      reminderTime, // Added
       progress: 0,
       goal: 1,
     });
@@ -55,12 +58,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           <X size={24} />
         </button>
         <h1 className="text-xl font-semibold">New Habit</h1>
-        <button
-          onClick={handleCreate}
-          className="text-[#ff5722] font-medium"
-        >
-          Create
-        </button>
+        <div className="w-10"></div> {/* Spacer to keep title centered if needed, or just nothing. Let's use a spacer or just remove it. */ }
       </div>
 
       <div className="px-5 py-6 space-y-6">
@@ -130,7 +128,12 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
             <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
               Frequency
             </label>
-            <button className="text-sm text-[#ff5722]">Daily</button>
+            <button 
+              onClick={() => setSelectedDays([1, 2, 3, 4, 5, 6, 7])}
+              className="text-sm text-[#ff5722] hover:text-[#ff6b3d] transition-colors"
+            >
+              Daily
+            </button>
           </div>
           <div className="flex gap-2 justify-between">
             {days.map((day) => (
@@ -153,11 +156,11 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         <div className="bg-[#2a1f19] rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#ff5722]/20 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${reminderEnabled ? 'bg-[#ff5722]/20' : 'bg-[#3d2f26]'}`}>
+                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path
                     d="M10 6V10L12 12M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10Z"
-                    stroke="#ff5722"
+                    stroke={reminderEnabled ? "#ff5722" : "#8a7a6e"}
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -165,13 +168,48 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                 </svg>
               </div>
               <div>
-                <p className="font-medium">Reminder</p>
-                <p className="text-sm text-[#8a7a6e]">9:00 AM Daily</p>
+                <p className="font-medium mb-1">Reminder</p>
+                {reminderEnabled ? (
+                  <button 
+                    onClick={() => timeInputRef.current?.showPicker()}
+                    className="relative inline-flex items-center gap-2 bg-[#ff5722]/10 px-3 py-1.5 rounded-lg border border-[#ff5722]/20 hover:bg-[#ff5722]/20 transition-colors"
+                  >
+                    <Clock size={14} className="text-[#ff5722]" />
+                    <span className="text-sm font-medium text-[#ff5722]">
+                      {(() => {
+                        if (!reminderTime) return 'Set time';
+                        const [hours, minutes] = reminderTime.split(':');
+                        const h = parseInt(hours, 10);
+                        const period = h >= 12 ? 'PM' : 'AM';
+                        const h12 = h % 12 || 12;
+                        return `${h12}:${minutes} ${period}`;
+                      })()}
+                    </span>
+                    <input 
+                        ref={timeInputRef}
+                        type="time" 
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+                    />
+                  </button>
+                ) : (
+                  <p className="text-sm text-[#8a7a6e]">Off</p>
+                )}
               </div>
             </div>
-            <button className="text-[#8a7a6e]">
-              <ChevronRight size={20} />
-            </button>
+            
+            <Switch.Root
+                checked={reminderEnabled}
+                onCheckedChange={setReminderEnabled}
+                className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${
+                  reminderEnabled ? 'bg-[#ff5722]' : 'bg-[#3d2f26]'
+                }`}
+              >
+                <Switch.Thumb className={`block w-4 h-4 bg-white rounded-full shadow transition-transform duration-100 will-change-transform ${
+                  reminderEnabled ? 'translate-x-[26px]' : 'translate-x-1'
+                }`} />
+            </Switch.Root>
           </div>
         </div>
 
