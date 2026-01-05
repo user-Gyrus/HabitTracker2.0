@@ -3,9 +3,10 @@ import bcrypt from "bcryptjs";
 
 export interface IUser {
   username: string;
-  email: string;
+  email: string; // Fixed: Interface should have the primitive type, not the schema config
   displayName: string;
-  password: string;
+  password?: string; // Optional
+  googleId?: string; // Optional
   createdAt: Date;
   updatedAt: Date;
   matchPassword: (enteredPassword: string) => Promise<boolean>;
@@ -32,7 +33,12 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: true,
+      required: false, // Optional for Google Auth users
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true, // Allows multiple nulls
     },
   },
   { timestamps: true }
@@ -40,12 +46,13 @@ const UserSchema = new Schema<IUser>(
 
 // Compare password
 UserSchema.methods.matchPassword = async function (enteredPassword: string) {
+  if (!this.password) return false;
   return bcrypt.compare(enteredPassword, this.password);
 };
 
 // Hash password before save
 UserSchema.pre("save", async function () {
-  if (!this.isModified("password")) {
+  if (!this.isModified("password") || !this.password) {
     return;
   }
 

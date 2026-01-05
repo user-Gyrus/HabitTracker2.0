@@ -11,6 +11,7 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+import "./config/passport"; // Load passport config
 
 // Database Connection
 connectDB();
