@@ -9,7 +9,7 @@ interface BottomNavProps {
 
 export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#2a1f19] border-t border-[#3d2f26] max-w-md mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#2a1f19] border-t border-[#3d2f26] max-w-md mx-auto z-50">
       <div className="flex items-center justify-around py-3">
         <button
           onClick={() => onNavigate('habits')}

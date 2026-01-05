@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Habit {
@@ -14,13 +14,16 @@ interface Habit {
 interface HabitCardProps {
   habit: Habit;
   onComplete: () => void;
+  onDelete: () => void;
 }
 
-export function HabitCard({ habit, onComplete }: HabitCardProps) {
+export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ... (startHold/endHold unchanged) ...
 
   const startHold = () => {
     if (habit.completed) return;
@@ -56,18 +59,30 @@ export function HabitCard({ habit, onComplete }: HabitCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#2a1f19] rounded-2xl p-4 shadow-lg relative overflow-hidden"
+      className="bg-[#2a1f19] rounded-2xl p-4 shadow-lg relative overflow-hidden group"
     >
-      {/* Micro-identity Badge */}
+      {/* Micro-identity Badge & Delete */}
       <div className="flex items-start justify-between mb-3">
         <span className="inline-block px-3 py-1.5 bg-[#3d2f26] text-[#b5a79a] text-xs rounded-full">
           {habit.microIdentity}
         </span>
-        {habit.completed && (
-          <div className="w-8 h-8 rounded-full bg-[#ff5722] flex items-center justify-center">
-            <Check size={16} className="text-white" strokeWidth={3} />
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+            {habit.completed && (
+            <div className="w-8 h-8 rounded-full bg-[#ff5722] flex items-center justify-center">
+                <Check size={16} className="text-white" strokeWidth={3} />
+            </div>
+            )}
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if(confirm("Delete this habit?")) onDelete();
+                }}
+                className="p-1.5 text-[#8a7a6e] hover:text-red-500 hover:bg-[#3d2f26] rounded-lg transition-colors"
+                title="Delete Habit"
+            >
+                <Trash2 size={16} />
+            </button>
+        </div>
       </div>
 
       {/* Habit Name & Progress */}
