@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, User, Clock, Globe, Lock, Minus, Plus } from 'lucide-react';
+import { X, User, Clock, Globe, Lock, Minus, Plus, Info } from 'lucide-react';
 import * as Switch from '@radix-ui/react-switch';
 
 interface CreateHabitScreenProps {
@@ -68,6 +68,32 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       <div className="px-5 py-6 space-y-6">
         {/* Build / Break Toggle */}
         <div>
+          <div className="flex items-center gap-2 mb-3">
+            <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
+              Habit Type
+            </label>
+            <div className="group relative">
+              <Info 
+                size={16} 
+                className="text-[#8a7a6e] hover:text-[#ff5722] cursor-help transition-colors" 
+              />
+              {/* Tooltip */}
+              <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-[#1a1410] border border-[#3d2f26] rounded-xl p-3 shadow-lg transition-all duration-200 z-10">
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-[#ff5722]">Build:</span>
+                    <span className="text-[#b8a89d] ml-1">Create good habits</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[#8a7a6e]">Break:</span>
+                    <span className="text-[#b8a89d] ml-1">Remove bad ones</span>
+                  </div>
+                </div>
+                {/* Arrow pointing down */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#3d2f26]"></div>
+              </div>
+            </div>
+          </div>
           <div className="inline-flex bg-[#2a1f19] rounded-full p-1 w-full">
             <button
               onClick={() => setHabitType('build')}
@@ -92,6 +118,20 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           </div>
         </div>
 
+        {/* Habit Name */}
+        <div>
+          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+            Habit Name
+          </label>
+          <input
+            type="text"
+            value={habitName}
+            onChange={(e) => setHabitName(e.target.value)}
+            placeholder="Morning Run"
+            className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
+          />
+        </div>
+
         {/* Micro-Identity */}
         <div>
           <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
@@ -110,20 +150,6 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           <p className="text-xs text-[#8a7a6e] mt-2">
             Who are you becoming by doing this?
           </p>
-        </div>
-
-        {/* Habit Name */}
-        <div>
-          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
-            Habit Name
-          </label>
-          <input
-            type="text"
-            value={habitName}
-            onChange={(e) => setHabitName(e.target.value)}
-            placeholder="Morning Run"
-            className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
-          />
         </div>
 
         {/* Visibility */}
