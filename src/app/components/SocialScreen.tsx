@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import api from "../../lib/api";
@@ -20,19 +20,16 @@ interface Friend {
 }
 
 interface Group {
-  id: string;
+  _id: string;
   name: string;
   avatar: string;
   daysToGoal: number;
   description: string;
+  members: { _id: string; displayName: string; username: string }[];
+  creator: string;
 }
 
-interface FriendToAdd {
-  id: string;
-  name: string;
-  lastActive: string;
-  avatar: string;
-}
+
 
 export function SocialScreen({ onNavigate }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
@@ -42,13 +39,16 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
   const [friendCode, setFriendCode] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searchedFriend, setSearchedFriend] = useState<{name: string; friendCode: string; streak: number; id: string} | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [showInviteToSquad, setShowInviteToSquad] = useState(false);
+  const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [squadName, setSquadName] = useState("");
   const [trackingType, setTrackingType] = useState<"shared" | "individual">("shared");
   const [duration, setDuration] = useState(30);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userProfile, setUserProfile] = useState<{display_name: string; friendCode?: string} | null>(null);
+  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
 
@@ -81,6 +81,17 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
     }
   };
 
+  const handleRemoveFriend = async () => {
+    if (!friendToRemove) return;
+    try {
+      await api.post("/friends/remove", { friendId: friendToRemove.id });
+      setFriends(friends.filter(f => f.id !== friendToRemove.id));
+      setFriendToRemove(null);
+    } catch (err: any) {
+        alert(err.response?.data?.message || "Failed to remove friend");
+    }
+  };
+
   // Load user profile
   useEffect(() => {
     const storedSession = localStorage.getItem("habit-tracker-session");
@@ -89,38 +100,22 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
       setUserProfile(profile);
     }
   }, []);
-  const [groups, setGroups] = useState<Group[]>([
-    {
-      id: "g1",
-      name: "Manya B.",
-      avatar: "👩‍💼",
-      daysToGoal: 1,
-      description: "Start a Group Streak: you're not alone. Track your habits with your accountability crew in real-time.",
-    },
-    {
-      id: "g2",
-      name: "The Gym Bros",
-      avatar: "💪",
-      daysToGoal: 3,
-      description: "Pushing each other to new limits. 5 members crushing fitness goals together.",
-    },
-    {
-      id: "g3",
-      name: "Early Birds",
-      avatar: "🌅",
-      daysToGoal: 2,
-      description: "Waking up at 5 AM every day. Accountability makes it easier.",
-    },
-    {
-      id: "g4",
-      name: "Study Squad",
-      avatar: "📚",
-      daysToGoal: 4,
-      description: "Learning together, growing together. Daily study sessions with friends.",
-    },
-  ]);
+  const [groups, setGroups] = useState<Group[]>([]);
 
-  // Dummy data
+  // Fetch Groups
+  useEffect(() => {
+    const fetchGroups = async () => {
+        try {
+            const res = await api.get("/groups");
+            setGroups(res.data);
+        } catch (err) {
+            console.error("Failed to fetch groups", err);
+        }
+    };
+    fetchGroups();
+  }, [showCreateSquad]); 
+
+  // Dummy data removed
   const dailyGoalFriends = [
     { id: "1", avatar: "👨‍💼" },
     { id: "2", avatar: "👩‍💻" },
@@ -130,33 +125,34 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
   // Dummy data removed, using state 'friends'
 
 
-  const availableFriends: FriendToAdd[] = [
-    { id: "af1", name: "Sarah", lastActive: "", avatar: "👩" },
-    { id: "af2", name: "James", lastActive: "", avatar: "👨" },
-    { id: "af3", name: "Emily Chen", lastActive: "", avatar: "👱‍♀️" },
-    { id: "af4", name: "Sarah Williams", lastActive: "", avatar: "👩‍🦰" },
-    { id: "af5", name: "Marcus Johnson", lastActive: "Last active 2d ago", avatar: "👨‍🦱" },
-  ];
-
-
-
   const toggleFriendSelection = (friendId: string) => {
-    setSelectedFriends((prev) =>
-      prev.includes(friendId)
-        ? prev.filter((id) => id !== friendId)
-        : [...prev, friendId]
-    );
+    setSelectedFriends((prev) => {
+      if (prev.includes(friendId)) {
+        return prev.filter((id) => id !== friendId);
+      } else {
+        if (prev.length >= 10) {
+            alert("Squads can have a maximum of 10 members.");
+            return prev;
+        }
+        return [...prev, friendId];
+      }
+    });
   };
 
   const selectAllFriends = () => {
-    if (selectedFriends.length === availableFriends.length) {
+    if (selectedFriends.length === friends.length) {
       setSelectedFriends([]);
     } else {
-      setSelectedFriends(availableFriends.map((f) => f.id));
+        if (friends.length > 10) {
+            alert("Selecting first 10 friends. Squad limit is 10.");
+            setSelectedFriends(friends.slice(0, 10).map(f => f.id));
+        } else {
+            setSelectedFriends(friends.map((f) => f.id));
+        }
     }
   };
 
-  const filteredFriends = availableFriends.filter((friend) =>
+  const filteredFriends = friends.filter((friend) =>
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -239,13 +235,29 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
           </div>
 
           {/* Carousel Container with Peek */}
+          {/* Carousel Container with Peek */}
           <div className="relative -mx-5 px-5 overflow-visible">
+            {groups.length === 0 ? (
+                 <div className="bg-[#2a1f19] rounded-2xl p-6 border border-[#3d2f26] text-center mx-1">
+                    <div className="w-12 h-12 rounded-full bg-[#ff5722]/10 flex items-center justify-center mx-auto mb-3">
+                        <Users className="text-[#ff5722]" size={24} />
+                    </div>
+                    <h3 className="font-bold text-white mb-1">Join a Squad</h3>
+                    <p className="text-sm text-[#8a7a6e] mb-4">You haven't joined any squads yet. Create one with your friends!</p>
+                    <button
+                        onClick={() => setShowCreateSquad(true)}
+                        className="bg-[#ff5722] hover:bg-[#ff6b3d] text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors"
+                    >
+                        Create Your First Squad
+                    </button>
+                 </div>
+            ) : (
             <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
               style={{ scrollSnapType: 'x mandatory' }}
             >
-              {groups.map((group, _) => (
+              {groups.map((group) => (
                 <motion.div
-                  key={group.id}
+                  key={group._id}
                   className="flex-shrink-0 w-[85%] snap-center"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -265,10 +277,16 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
 
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex -space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">👩</div>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">👨</div>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">🧑</div>
-                        <div className="w-8 h-8 rounded-full bg-[#3d2f26] border-2 border-[#2a1f19] flex items-center justify-center text-[10px] font-semibold text-[#8a7a6e]">+2</div>
+                        {group.members && group.members.slice(0, 3).map((member) => (
+                           <div key={member._id} className="w-8 h-8 rounded-full bg-[#3d2f26] border-2 border-[#2a1f19] flex items-center justify-center text-xs font-bold text-white uppercase">
+                            {member.displayName.charAt(0)}
+                           </div>
+                        ))}
+                        {group.members && group.members.length > 3 && (
+                            <div className="w-8 h-8 rounded-full bg-[#3d2f26] border-2 border-[#2a1f19] flex items-center justify-center text-[10px] font-semibold text-[#8a7a6e]">
+                                +{group.members.length - 3}
+                            </div>
+                        )}
                       </div>
                     </div>
 
@@ -285,6 +303,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                 </motion.div>
               ))}
             </div>
+            )}
           </div>
         </div>
 
@@ -292,35 +311,72 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
         <div>
           <h2 className="text-xl font-bold mb-4">Your friends</h2>
           <div className="space-y-3">
-            {friends.map((friend) => (
-              <div
-                key={friend.id}
-                className="bg-[#2a1f19] rounded-2xl p-4 flex items-center justify-between border border-[#3d2f26] hover:border-[#ff5722]/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-2 border-[#1a1410]">
-                      <span className="text-lg">🧑</span>
-                    </div>
-                    {friend.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1a1410]" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-semibold flex items-center gap-1.5">
-                      {friend.name} <span>{friend.emoji}</span>
-                    </p>
-                    <p className="text-xs text-[#8a7a6e] font-mono mb-0.5">{friend.friendCode}</p>
-                    <p className="text-sm text-[#ff5722] flex items-center gap-1">
-                      {friend.streak} Day Streak <span>🔥</span>
-                    </p>
-                  </div>
+            {friends.length === 0 ? (
+              <div className="bg-[#2a1f19] rounded-2xl p-8 border border-[#3d2f26] text-center flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-[#ff5722]/10 flex items-center justify-center mb-4">
+                  <UserPlus className="text-[#ff5722]" size={32} />
                 </div>
-                <button className="p-2 hover:bg-[#3d2f26] rounded-lg transition-colors">
-                  <MoreVertical size={18} className="text-[#8a7a6e]" />
+                <h3 className="font-bold text-lg mb-2">No friends yet</h3>
+                <p className="text-[#8a7a6e] text-sm mb-6 max-w-[200px]">
+                  Everything is better together. Add your first friend to start competing!
+                </p>
+                <button
+                  onClick={() => setShowAddFriend(true)}
+                  className="bg-[#ff5722] hover:bg-[#ff6b3d] text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+                >
+                  Add a Friend
                 </button>
               </div>
-            ))}
+            ) : (
+              friends.map((friend) => (
+                <div
+                  key={friend.id}
+                  className="bg-[#2a1f19] rounded-2xl p-4 flex items-center justify-between border border-[#3d2f26] hover:border-[#ff5722]/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-2 border-[#1a1410]">
+                        <span className="text-lg">🧑</span>
+                      </div>
+                      {friend.isOnline && (
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-[#1a1410]" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold flex items-center gap-1.5">
+                        {friend.name} <span>{friend.emoji}</span>
+                      </p>
+                      <p className="text-xs text-[#8a7a6e] font-mono mb-0.5">{friend.friendCode}</p>
+                      <p className="text-sm text-[#ff5722] flex items-center gap-1">
+                        {friend.streak} Day Streak <span>🔥</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <button 
+                      onClick={() => setActiveMenuId(activeMenuId === friend.id ? null : friend.id)}
+                      className="p-2 hover:bg-[#3d2f26] rounded-lg transition-colors"
+                    >
+                      <MoreVertical size={18} className="text-[#8a7a6e]" />
+                    </button>
+                    {activeMenuId === friend.id && (
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-[#1a1410] border border-[#3d2f26] rounded-xl shadow-xl z-10 overflow-hidden">
+                          <button
+                              onClick={() => {
+                                  setFriendToRemove(friend);
+                                  setActiveMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-3 text-red-500 hover:bg-[#2a1f19] text-sm font-semibold transition-colors flex items-center gap-2"
+                          >
+                              <X size={16} />
+                              Remove Friend
+                          </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -333,7 +389,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-0 bg-gradient-to-b from-[#3d2817] to-[#1a1410] z-50 overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="fixed inset-0 bg-gradient-to-b from-[#3d2817] to-[#1a1410] z-[60] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <div className="max-w-md mx-auto min-h-screen px-5 pt-6 pb-32">
               {/* Header */}
@@ -507,13 +563,10 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-2 border-[#1a1410]">
-                            <span className="text-lg">{friend.avatar}</span>
+                            <span className="text-lg">{friend.emoji}</span>
                           </div>
                           <div>
                             <p className="font-semibold text-sm">{friend.name}</p>
-                            {friend.lastActive && (
-                              <p className="text-xs text-[#8a7a6e]">{friend.lastActive}</p>
-                            )}
                           </div>
                         </div>
                         <button
@@ -538,171 +591,127 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
 
               {/* Create Squad Button */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (squadName.trim()) {
-                    // Create new squad
-                    const newSquad: Group = {
-                      id: `g${Date.now()}`,
-                      name: squadName,
-                      avatar: "🚀",
-                      daysToGoal: duration,
-                      description: `${trackingType === "shared" ? "Shared" : "Individual"} habit tracking for ${selectedFriends.length} members. ${duration} day challenge!`,
-                    };
-                    
-                    // Add to groups
-                    setGroups([...groups, newSquad]);
-                    // setGroups([...groups, newSquad]);
-                    
-                    // Reset form and close modal
-                    setSquadName("");
-                    setTrackingType("shared");
-                    setDuration(30);
-                    setSelectedFriends([]);
-                    setSearchQuery("");
-                    setShowCreateSquad(false);
-                  }
-                }}
-                disabled={!squadName.trim()}
-                className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] disabled:bg-[#3d2f26] disabled:text-[#8a7a6e] disabled:cursor-not-allowed text-white rounded-full py-4 flex items-center justify-center gap-2 transition-colors font-semibold"
-              >
-                Create Squad 🚀
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Group Details Modal */}
-      {showGroupDetails && selectedGroup && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center px-5"
-          onClick={() => setShowGroupDetails(false)}
-        >
-          {/* Backdrop with blur */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-lg" />
-          
-          {/* Modal Content */}
-          <div 
-            className="relative w-full max-w-md bg-gradient-to-b from-[#3d2817] to-[#1a1410] rounded-3xl shadow-2xl max-h-[75vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-6 border-b border-[#3d2f26]">
-              <button
-                onClick={() => setShowGroupDetails(false)}
-                className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
-              >
-                <X size={20} />
-              </button>
-              <h1 className="text-sm font-semibold uppercase tracking-wider text-[#8a7a6e]">Squad details</h1>
-              <button 
-                onClick={() => setShowGroupMenu(true)}
-                className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
-              >
-                <Menu size={20} />
-              </button>
-            </div>
-
-            <div className="px-5 py-6">
-              {/* Group Header */}
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-4 border-[#1a1410]">
-                    <span className="text-4xl">{selectedGroup.avatar}</span>
-                  </div>
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-500 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                    <Check size={12} strokeWidth={3} />
-                    <span>3/10</span>
-                  </div>
-                </div>
-                <h2 className="text-2xl font-bold mb-1">{selectedGroup.name}</h2>
-                <p className="text-sm text-[#8a7a6e]">Consistency is key 🔥</p>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
-                  <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Total Streak</p>
-                  <p className="text-2xl font-bold text-[#ff5722]">24 Days</p>
-                </div>
-                <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
-                  <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Members</p>
-                  <p className="text-2xl font-bold">4 / 10</p>
-                </div>
-              </div>
-
-              {/* Squad Members */}
-              <div>
-                <h3 className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-3">Squad Members</h3>
-                <div className="space-y-2">
-                  {/* You */}
-                  <div className="bg-[#2a1f19] rounded-xl p-3 flex items-center justify-between border border-[#3d2f26]">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-lg font-bold border-2 border-[#1a1410]">
-                          YU
+                    try {
+                        await api.post("/groups/create", {
+                            name: squadName,
+                            members: selectedFriends,
+                            trackingType,
+                            duration,
+                            description: `${trackingType === "shared" ? "Shared" : "Individual"} habit tracking. ${duration} day challenge!`,
+                            avatar: "🚀"
+                        });
+                        alert("Squad created!");
+                        
+                        // Reset form and close modal
+                        setSquadName("");
+                        setTrackingType("shared");
+                        setDuration(30);
+                        setSelectedFriends([]);
+                        setSearchQuery("");
+                        setShowCreateSquad(false);
+                     } catch (err: any) {
+                         alert(err.response?.data?.message || "Failed to create squad");
+                     }
+                   }
+                 }}
+                 disabled={!squadName.trim()}
+                 className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] disabled:bg-[#3d2f26] disabled:text-[#8a7a6e] disabled:cursor-not-allowed text-white rounded-full py-4 flex items-center justify-center gap-2 transition-colors font-semibold"
+               >
+                 Create Squad 🚀
+               </button>
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+ 
+       {/* Group Details Modal */}
+       {showGroupDetails && selectedGroup && (
+         <div 
+           className="fixed inset-0 z-[60] flex items-center justify-center px-5"
+           onClick={() => setShowGroupDetails(false)}
+         >
+           {/* Backdrop with blur */}
+           <div className="absolute inset-0 bg-black/50 backdrop-blur-lg" />
+           
+           {/* Modal Content */}
+           <div 
+             className="relative w-full max-w-md bg-gradient-to-b from-[#3d2817] to-[#1a1410] rounded-3xl shadow-2xl max-h-[75vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+             onClick={(e) => e.stopPropagation()}
+           >
+             {/* Header */}
+             <div className="flex items-center justify-between px-5 py-6 border-b border-[#3d2f26]">
+               <button
+                 onClick={() => setShowGroupDetails(false)}
+                 className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
+               >
+                 <X size={20} />
+               </button>
+               <h1 className="text-sm font-semibold uppercase tracking-wider text-[#8a7a6e]">Squad details</h1>
+               <button 
+                 onClick={() => setShowGroupMenu(true)}
+                 className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
+               >
+                 <Menu size={20} />
+               </button>
+             </div>
+ 
+             <div className="px-5 py-6">
+               {/* Group Header */}
+               <div className="flex flex-col items-center mb-6">
+                 <div className="relative mb-4">
+                   <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-4 border-[#1a1410]">
+                     <span className="text-4xl">{selectedGroup.avatar}</span>
+                   </div>
+                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-500 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                     <Check size={12} strokeWidth={3} />
+                     <span>3/10</span>
+                   </div>
+                 </div>
+                 <h2 className="text-2xl font-bold mb-1">{selectedGroup.name}</h2>
+                 <p className="text-sm text-[#8a7a6e]">Consistency is key 🔥</p>
+               </div>
+ 
+               {/* Stats */}
+               <div className="grid grid-cols-2 gap-3 mb-6">
+                 <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
+                   <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Total Streak</p>
+                   <p className="text-2xl font-bold text-[#ff5722]">24 Days</p>
+                 </div>
+                 <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
+                   <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Members</p>
+                   <p className="text-2xl font-bold">{selectedGroup.members?.length || 0} / 10</p>
+                 </div>
+               </div>
+ 
+               {/* Squad Members */}
+               <div>
+                 <h3 className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-3">Squad Members</h3>
+                 <div className="space-y-2">
+                   {/* Members Loop */}
+                    {selectedGroup.members && selectedGroup.members.map((member) => (
+                        <div key={member._id} className="bg-[#2a1f19] rounded-xl p-3 flex items-center justify-between border border-[#3d2f26]">
+                            <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <div className="w-10 h-10 rounded-full bg-[#3d2f26] border-2 border-[#1a1410] flex items-center justify-center text-lg font-bold text-white uppercase">
+                                {member.displayName.charAt(0)}
+                                </div>
+                                {/* Mock online status */}
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1410]" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-sm">{member.displayName} {userProfile?.friendCode === member.username ? "(You)" : ""}</p>
+                                <p className="text-xs text-[#ff5722]">0 Day Streak</p>
+                            </div>
+                            </div>
                         </div>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1410]" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">You</p>
-                        <p className="text-xs text-[#ff5722]">7 Day Streak</p>
-                      </div>
-                    </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                  </div>
-
-                  {/* Alex Miller */}
-                  <div className="bg-[#2a1f19] rounded-xl p-3 flex items-center justify-between border border-[#3d2f26]">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-lg font-bold border-2 border-[#1a1410]">
-                          AM
-                        </div>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1410]" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">Alex Miller</p>
-                        <p className="text-xs text-[#8a7a6e]">Road to Begun</p>
-                      </div>
-                    </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                  </div>
-
-                  {/* Sarah Jenkins */}
-                  <div className="bg-[#2a1f19] rounded-xl p-3 flex items-center justify-between border border-[#3d2f26]">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-lg font-bold border-2 border-[#1a1410]">
-                          SJ
-                        </div>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1410]" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">Sarah Jenkins</p>
-                        <p className="text-xs text-[#8a7a6e]">Done 21, Month</p>
-                      </div>
-                    </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                  </div>
-
-                  {/* David Kim */}
-                  <div className="bg-[#2a1f19] rounded-xl p-3 flex items-center justify-between border border-[#3d2f26] opacity-60">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-lg font-bold border-2 border-[#1a1410]">
-                        DK
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">David Kim</p>
-                        <p className="text-xs text-[#8a7a6e]">Resolution Elite</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Group Menu Overlay */}
+                    ))}
+                 </div>
+               </div>
+             </div>
+ 
+             {/* Group Menu Overlay */}
             {showGroupMenu && (
               <div 
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-3xl flex items-start justify-center pt-20 z-10"
@@ -716,20 +725,60 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                     <Pencil size={18} className="text-[#8a7a6e]" />
                     <span className="text-sm">Change your habit</span>
                   </button>
-                  <button className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors border-b border-[#3d2f26]">
+                  <button 
+                    onClick={() => setShowInviteToSquad(true)} 
+                    className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors border-b border-[#3d2f26]"
+                  >
                     <UserPlus size={18} className="text-[#8a7a6e]" />
                     <span className="text-sm">Invite More Friends</span>
                   </button>
-                  <button className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors text-red-500">
-                    <X size={18} />
-                    <span className="text-sm">Leave Group</span>
-                  </button>
+                  {selectedGroup.creator === userProfile?.id ? (
+                      <button 
+                        onClick={async () => {
+                             if(confirm("Are you sure you want to delete this squad? This action cannot be undone.")) {
+                                try {
+                                    await api.delete(`/groups/${selectedGroup._id}`);
+                                    alert("Squad deleted successfully");
+                                    setGroups(groups.filter(g => g._id !== selectedGroup._id));
+                                    setShowGroupMenu(false);
+                                    setShowGroupDetails(false);
+                                } catch (err: any) {
+                                    alert(err.response?.data?.message || "Failed to delete squad");
+                                }
+                             }
+                        }}
+                        className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors text-red-500"
+                      >
+                        <Trash2 size={18} />
+                        <span className="text-sm">Delete Squad</span>
+                      </button>
+                  ) : (
+                      <button 
+                         onClick={async () => {
+                             if(confirm("Are you sure you want to leave this squad?")) {
+                                try {
+                                    await api.post("/groups/leave", { groupId: selectedGroup._id });
+                                    alert("Left squad successfully");
+                                    setGroups(groups.filter(g => g._id !== selectedGroup._id));
+                                    setShowGroupMenu(false);
+                                    setShowGroupDetails(false);
+                                } catch (err: any) {
+                                    alert(err.response?.data?.message || "Failed to leave squad");
+                                }
+                             }
+                         }}
+                         className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors text-red-500"
+                      >
+                        <LogOut size={18} />
+                        <span className="text-sm">Leave Squad</span>
+                      </button>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+           </div>
+         </div>
+       )}
 
       {/* Add Friend Modal */}
       {showAddFriend && (
@@ -877,6 +926,182 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
           </div>
         </div>
       )}
+
+      {/* Invite Friends to Squad Modal */}
+      <AnimatePresence>
+        {showInviteToSquad && selectedGroup && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-0 bg-gradient-to-b from-[#3d2817] to-[#1a1410] z-[60] overflow-y-auto"
+          >
+            <div className="max-w-md mx-auto min-h-screen px-5 pt-6 pb-32">
+                
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  onClick={() => {
+                      setShowInviteToSquad(false);
+                      setSelectedFriends([]);
+                  }}
+                  className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+                <h1 className="text-xl font-semibold">Invite to {selectedGroup.name}</h1>
+                <div className="w-10" />
+              </div>
+
+               {/* Friends Selection Logic (Reused) */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
+                    Select Friends
+                  </label>
+                   {/* Reuse select all logic if needed, but simplified for single invites might be better or reusing existing logic */}
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-3">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a7a6e]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search friends..."
+                    className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl pl-10 pr-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
+                  />
+                </div>
+
+                {/* Friends List */}
+                <div className="space-y-2">
+                  {filteredFriends
+                    .filter(f => !selectedGroup.members.some(m => m._id === f.id)) // Filter out already members
+                    .map((friend) => {
+                    const isSelected = selectedFriends.includes(friend.id);
+                    return (
+                      <div
+                        key={friend.id}
+                        className="flex items-center justify-between p-3 bg-[#2a1f19] border border-[#3d2f26] rounded-xl hover:border-[#ff5722]/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-2 border-[#1a1410]">
+                            <span className="text-lg">{friend.emoji}</span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm">{friend.name}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => toggleFriendSelection(friend.id)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            isSelected
+                              ? "bg-[#ff5722]"
+                              : "bg-[#3d2f26] hover:bg-[#4a3f36]"
+                          }`}
+                        >
+                          {isSelected ? (
+                            <Check size={16} className="text-white" strokeWidth={3} />
+                          ) : (
+                            <span className="text-[#8a7a6e] text-xl leading-none">+</span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {filteredFriends.filter(f => !selectedGroup.members.some(m => m._id === f.id)).length === 0 && (
+                      <p className="text-center text-[#8a7a6e] mt-8">No friends available to invite.</p>
+                  )}
+                </div>
+              </div>
+
+               {/* Invite Button */}
+               <div className="fixed bottom-8 left-0 right-0 px-5">
+                   <button
+                     onClick={async () => {
+                        if (selectedFriends.length > 0) {
+                            try {
+                                // Add members one by one or bulk? Backend handles one at a time currently.
+                                // Let's loop for now or update backend to handle array. Backend only handles one based on my spec.
+                                // Actually let's assume I implemented bulk or just do loop.
+                                // The backend implementation: const { groupId, memberId } = req.body; -> Single member.
+                                // I will loop here for now.
+                                for (const friendId of selectedFriends) {
+                                     await api.post("/groups/add-member", {
+                                         groupId: selectedGroup._id,
+                                         memberId: friendId
+                                     });
+                                }
+                                alert("Friends invited successfully!");
+                                // Refresh groups to show new members
+                                const res = await api.get("/groups");
+                                setGroups(res.data);
+                                // Update selectedGroup as well
+                                const updatedGroup = res.data.find((g: any) => g._id === selectedGroup._id);
+                                if (updatedGroup) setSelectedGroup(updatedGroup);
+
+                                setShowInviteToSquad(false);
+                                setSelectedFriends([]);
+                            } catch (err: any) {
+                                alert(err.response?.data?.message || "Failed to invite friends");
+                            }
+                        }
+                     }}
+                     disabled={selectedFriends.length === 0}
+                     className="w-full max-w-md mx-auto bg-[#ff5722] hover:bg-[#ff6b3d] disabled:bg-[#3d2f26] disabled:text-[#8a7a6e] disabled:cursor-not-allowed text-white rounded-full py-4 flex items-center justify-center gap-2 transition-colors font-semibold shadow-lg"
+                   >
+                     Invite {selectedFriends.length} Friend{selectedFriends.length !== 1 ? 's' : ''}
+                   </button>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    
+          {/* Remove Friend Confirmation Modal */}
+          <AnimatePresence>
+            {friendToRemove && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setFriendToRemove(null)}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                />
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-[#2a1f19] rounded-3xl p-6 w-full max-w-sm border border-[#3d2f26] shadow-2xl relative z-10 text-center"
+                >
+                    <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <UserPlus size={32} className="text-red-500 rotate-45" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Remove {friendToRemove.name}?</h3>
+                    <p className="text-[#8a7a6e] text-sm mb-6">
+                        Are you sure you want to remove this friend? This action cannot be undone and you will lose your shared streaks.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setFriendToRemove(null)}
+                            className="flex-1 py-3 rounded-xl font-semibold bg-[#3d2f26] text-white hover:bg-[#4a3f36] transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleRemoveFriend}
+                            className="flex-1 py-3 rounded-xl font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
     </>
   );
 }

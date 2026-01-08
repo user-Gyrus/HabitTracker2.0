@@ -25,9 +25,11 @@ connectDB();
 
 import authRoutes from "./routes/authRoutes";
 import friendRoutes from "./routes/friendRoutes";
+import groupRoutes from "./routes/groupRoutes";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/groups", groupRoutes);
 
 // Basic Route
 app.get("/", (req, res) => {

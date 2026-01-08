@@ -68,6 +68,34 @@ export const addFriend = async (req: any, res: Response, next: NextFunction): Pr
     }
 };
 
+// @desc    Remove a friend (Mutual)
+// @route   POST /api/friends/remove
+// @access  Private
+export const removeFriend = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { friendId } = req.body;
+
+        const currentUser = await User.findById(req.user._id);
+        const friendToRemove = await User.findById(friendId);
+
+        if (!currentUser || !friendToRemove) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // Remove from both lists
+        currentUser.friends = currentUser.friends.filter(id => id.toString() !== friendId);
+        friendToRemove.friends = friendToRemove.friends.filter(id => id.toString() !== currentUser._id.toString());
+
+        await currentUser.save();
+        await friendToRemove.save();
+
+        res.json({ message: "Friend removed successfully" });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get user's friends
 // @route   GET /api/friends
 // @access  Private
