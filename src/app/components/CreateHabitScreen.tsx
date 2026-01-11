@@ -53,16 +53,16 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-6 border-b border-[#3d2f26]">
+      <div className="flex items-center justify-between px-5 py-6 border-b border-border">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
+          className="p-2 hover:bg-secondary rounded-lg transition-colors"
         >
-          <X size={24} />
+          <X size={24} className="text-foreground" />
         </button>
-        <h1 className="text-xl font-semibold">New Habit</h1>
+        <h1 className="text-xl font-semibold text-foreground">New Habit</h1>
         <div className="w-10"></div> {/* Spacer to keep title centered if needed, or just nothing. Let's use a spacer or just remove it. */ }
       </div>
 
@@ -70,40 +70,40 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         {/* Build / Break Toggle */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
+            <label className="text-sm text-muted-foreground uppercase tracking-wide">
               Habit Type
             </label>
             <div className="group relative">
               <div onClick={() => setShowInfo(!showInfo)} className="cursor-pointer">
                 <Info 
                   size={16} 
-                  className={`text-[#8a7a6e] hover:text-[#ff5722] transition-colors ${showInfo ? 'text-[#ff5722]' : ''}`} 
+                  className={`text-muted-foreground hover:text-primary transition-colors ${showInfo ? 'text-primary' : ''}`} 
                 />
               </div>
               {/* Tooltip */}
-              <div className={`absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-[#1a1410] border border-[#3d2f26] rounded-xl p-3 shadow-lg transition-all duration-200 z-10 ${showInfo ? 'visible opacity-100' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+              <div className={`absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-card-bg border border-card-border rounded-xl p-3 shadow-lg transition-all duration-200 z-10 ${showInfo ? 'visible opacity-100' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
                 <div className="space-y-2 text-xs">
                   <div>
-                    <span className="font-semibold text-[#ff5722]">Build:</span>
-                    <span className="text-[#b8a89d] ml-1">Create good habits</span>
+                    <span className="font-semibold text-primary">Build:</span>
+                    <span className="text-muted-foreground ml-1">Create good habits</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-[#8a7a6e]">Break:</span>
-                    <span className="text-[#b8a89d] ml-1">Remove bad ones</span>
+                    <span className="font-semibold text-muted-foreground">Break:</span>
+                    <span className="text-muted-foreground ml-1">Remove bad ones</span>
                   </div>
                 </div>
                 {/* Arrow pointing down */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#3d2f26]"></div>
+                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-card-border"></div>
               </div>
             </div>
           </div>
-          <div className="inline-flex bg-[#2a1f19] rounded-full p-1 w-full">
+          <div className="inline-flex bg-card-bg border border-card-border rounded-full p-1 w-full">
             <button
               onClick={() => setHabitType('build')}
               className={`flex-1 px-6 py-2 rounded-full transition-colors ${
                 habitType === 'build'
-                  ? 'bg-[#ff5722] text-white'
-                  : 'text-[#8a7a6e]'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground'
               }`}
             >
               Build
@@ -112,8 +112,8 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
               onClick={() => setHabitType('break')}
               className={`flex-1 px-6 py-2 rounded-full transition-colors ${
                 habitType === 'break'
-                  ? 'bg-[#3d2f26] text-white'
-                  : 'text-[#8a7a6e]'
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground'
               }`}
             >
               Break
@@ -123,7 +123,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
 
         {/* Habit Name */}
         <div>
-          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+          <label className="block text-sm text-muted-foreground mb-2 uppercase tracking-wide">
             Habit Name
           </label>
           <input
@@ -131,43 +131,43 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
             value={habitName}
             onChange={(e) => setHabitName(e.target.value)}
             placeholder="Morning Run"
-            className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
+            className="w-full bg-input border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
         {/* Micro-Identity */}
         <div>
-          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+          <label className="block text-sm text-muted-foreground mb-2 uppercase tracking-wide">
             Micro-Identity
           </label>
           <div className="relative">
-            <User size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a7a6e]" />
+            <User size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={microIdentity}
               onChange={(e) => setMicroIdentity(e.target.value)}
               placeholder="e.g. The Athlete"
-              className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-10 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
+              className="w-full bg-input border border-border rounded-xl px-10 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             />
           </div>
-          <p className="text-xs text-[#8a7a6e] mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             Who are you becoming by doing this?
           </p>
         </div>
 
         {/* Visibility */}
         <div>
-          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+          <label className="block text-sm text-muted-foreground mb-2 uppercase tracking-wide">
             Visibility
           </label>
-          <div className="bg-[#2a1f19] p-1 rounded-2xl flex relative">
+          <div className="bg-card-bg border border-card-border p-1 rounded-2xl flex relative">
               {/* Sliding background could be added here for animation, but simple state switching works for now */}
              <button
               onClick={() => setVisibility('public')}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
                 visibility === 'public'
-                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
-                  : 'text-[#8a7a6e]'
+                  ? 'bg-secondary text-primary shadow-sm'
+                  : 'text-muted-foreground'
               }`}
             >
               <Globe size={18} />
@@ -177,15 +177,15 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
               onClick={() => setVisibility('private')}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
                 visibility === 'private'
-                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
-                  : 'text-[#8a7a6e]'
+                  ? 'bg-secondary text-primary shadow-sm'
+                  : 'text-muted-foreground'
               }`}
             >
               <Lock size={18} />
               <span className="font-medium">Private</span>
             </button>
           </div>
-          <p className="text-xs text-[#8a7a6e] mt-2 text-center">
+          <p className="text-xs text-muted-foreground mt-2 text-center">
             Public habits are visible to your friends for accountability.
           </p>
         </div>
@@ -193,12 +193,12 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         {/* Frequency */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
+            <label className="text-sm text-muted-foreground uppercase tracking-wide">
               Frequency
             </label>
             <button 
               onClick={() => setSelectedDays([1, 2, 3, 4, 5, 6, 7])}
-              className="text-sm text-[#ff5722] hover:text-[#ff6b3d] transition-colors"
+              className="text-sm text-primary hover:text-primary/80 transition-colors"
             >
               Daily
             </button>
@@ -210,8 +210,8 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                 onClick={() => toggleDay(day.num)}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${
                   selectedDays.includes(day.num)
-                    ? 'bg-[#ff5722] text-white scale-105'
-                    : 'bg-[#2a1f19] text-[#8a7a6e] border border-[#3d2f26]'
+                    ? 'bg-primary text-primary-foreground scale-105'
+                    : 'bg-card-bg text-muted-foreground border border-card-border'
                 }`}
               >
                 {day.label}
@@ -222,16 +222,16 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
 
         {/* Duration */}
         <div>
-           <label className="block text-sm text-[#8a7a6e] mb-3 uppercase tracking-wide">
+           <label className="block text-sm text-muted-foreground mb-3 uppercase tracking-wide">
             Duration
           </label>
-           <div className="bg-[#2a1f19] rounded-2xl p-6 flex flex-col items-center">
+           <div className="bg-card-bg border border-card-border rounded-2xl p-6 flex flex-col items-center">
              
              {/* Large Input Display with Controls */}
              <div className="flex items-center gap-6 mb-2">
                 <button
                   onClick={() => setDuration(prev => Math.max(1, prev - 1))}
-                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                  className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors"
                 >
                   <Minus size={18} />
                 </button>
@@ -242,21 +242,21 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                     min="1"
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-32 bg-transparent text-center text-5xl font-bold text-white focus:outline-none placeholder:text-[#3d2f26]"
+                    className="w-32 bg-transparent text-center text-5xl font-bold text-foreground focus:outline-none placeholder:text-muted"
                   />
                 </div>
 
                 <button
                   onClick={() => setDuration(prev => prev + 1)}
-                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                  className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors"
                 >
                   <Plus size={18} />
                 </button>
              </div>
              
              {/* Divider & Label */}
-             <div className="w-16 h-1 bg-[#ff5722] rounded-full mb-3 opacity-80"></div>
-             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a7a6e] font-medium mb-8">
+             <div className="w-16 h-1 bg-primary rounded-full mb-3 opacity-80"></div>
+             <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-8">
                Days Target
              </p>
 
@@ -268,8 +268,8 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                    onClick={() => setDuration(days)}
                    className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
                      duration === days
-                       ? 'bg-[#ff5722] text-white shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
-                       : 'bg-[#1a1410] text-[#8a7a6e] hover:bg-[#3d2f26] hover:text-white'
+                       ? 'bg-primary text-primary-foreground shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
+                       : 'bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
                    }`}
                  >
                    {days} Days
@@ -280,14 +280,14 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         </div>
 
         {/* Reminder */}
-        <div className="bg-[#2a1f19] rounded-xl p-4">
+        <div className="bg-card-bg border border-card-border rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${reminderEnabled ? 'bg-[#ff5722]/20' : 'bg-[#3d2f26]'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${reminderEnabled ? 'bg-primary/20' : 'bg-secondary'}`}>
                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path
                     d="M10 6V10L12 12M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10Z"
-                    stroke={reminderEnabled ? "#ff5722" : "#8a7a6e"}
+                    stroke={reminderEnabled ? "var(--primary)" : "var(--muted-foreground)"}
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -295,14 +295,14 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                 </svg>
               </div>
               <div>
-                <p className="font-medium mb-1">Reminder</p>
+                <p className="font-medium mb-1 text-foreground">Reminder</p>
                 {reminderEnabled ? (
                   <button 
                     onClick={() => timeInputRef.current?.showPicker()}
-                    className="relative inline-flex items-center gap-2 bg-[#ff5722]/10 px-3 py-1.5 rounded-lg border border-[#ff5722]/20 hover:bg-[#ff5722]/20 transition-colors"
+                    className="relative inline-flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors"
                   >
-                    <Clock size={14} className="text-[#ff5722]" />
-                    <span className="text-sm font-medium text-[#ff5722]">
+                    <Clock size={14} className="text-primary" />
+                    <span className="text-sm font-medium text-primary">
                       {(() => {
                         if (!reminderTime) return 'Set time';
                         const [hours, minutes] = reminderTime.split(':');
@@ -321,7 +321,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                     />
                   </button>
                 ) : (
-                  <p className="text-sm text-[#8a7a6e]">Off</p>
+                  <p className="text-sm text-muted-foreground">Off</p>
                 )}
               </div>
             </div>
@@ -330,7 +330,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                 checked={reminderEnabled}
                 onCheckedChange={setReminderEnabled}
                 className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${
-                  reminderEnabled ? 'bg-[#ff5722]' : 'bg-[#3d2f26]'
+                  reminderEnabled ? 'bg-primary' : 'bg-secondary'
                 }`}
               >
                 <Switch.Thumb className={`block w-4 h-4 bg-white rounded-full shadow transition-transform duration-100 will-change-transform ${
@@ -344,7 +344,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         <button
           onClick={handleCreate}
           disabled={!microIdentity || !habitName}
-          className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] disabled:bg-[#3d2f26] disabled:text-[#8a7a6e] text-white rounded-full py-4 flex items-center justify-center gap-2 transition-colors mt-8"
+          className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground rounded-full py-4 flex items-center justify-center gap-2 transition-colors mt-8"
         >
           Start Habit
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

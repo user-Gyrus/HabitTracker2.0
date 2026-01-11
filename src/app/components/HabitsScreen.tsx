@@ -4,6 +4,17 @@ import{ HabitCard } from "./HabitCard";
 import { useMemo, useState } from "react";
 import { ProfileScreen } from "./ProfileScreen";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+
 export interface Habit {
   id: string;
   name: string;
@@ -75,16 +86,17 @@ export function HabitsScreen({
   const dateString = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
 
   return (
     <div className="px-5 pt-6 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-[#2a1f19]" />
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-background" />
           <div>
-            <p className="text-sm text-[#b5a79a] font-medium mb-0.5">Welcome back,</p>
-            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <p className="text-sm text-muted-foreground font-medium mb-0.5">Welcome back,</p>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
               {userName || 'Guest'} 
               <span className="animate-pulse">👋</span>
             </h1>
@@ -92,9 +104,9 @@ export function HabitsScreen({
         </div>
         <button
           onClick={() => setShowProfileModal(true)}
-          className="p-3 hover:bg-[#2a1f19] rounded-xl transition-all active:scale-95 border border-transparent hover:border-[#3d2f26]"
+          className="p-3 hover:bg-accent rounded-xl transition-all active:scale-95 border border-transparent hover:border-border"
         >
-          <Menu size={24} className="text-[#b5a79a]" />
+          <Menu size={24} className="text-muted-foreground" />
         </button>
       </div>
 
@@ -102,13 +114,13 @@ export function HabitsScreen({
 
       {/* Date Display */}
       <div className="mb-8">
-        <p className="text-[#ff5722] text-md font-medium tracking-wide">
+        <p className="text-primary text-md font-medium tracking-wide">
           {dayName} ~ {dateString}
         </p>
       </div>
 
       {/* Streak */}
-      <div className="bg-[#2a1f19] rounded-3xl border border-[#3d2f26] p-6 mb-8 shadow-lg shadow-black/20 flex flex-col items-center">
+      <div className="bg-card-bg rounded-3xl border border-card-border p-6 mb-8 shadow-lg shadow-black/5 flex flex-col items-center">
         <motion.div
           className="mb-4"
           animate={
@@ -118,15 +130,15 @@ export function HabitsScreen({
           }
           transition={{ duration: 2, repeat: Infinity }}
         >
-          <Flame size={64} className="text-[#ff5722]" fill="#ff5722" />
+          <Flame size={64} className="text-primary" fill="currentColor" />
         </motion.div>
-        <h1 className="text-3xl font-bold mb-2 text-white">{streakDays} Day Streak</h1>
-        <p className="text-[#b5a79a]">Keep the fire burning!</p>
+        <h1 className="text-3xl font-bold mb-2 text-foreground">{streakDays} Day Streak</h1>
+        <p className="text-muted-foreground">Keep the fire burning!</p>
       </div>
 
       {/* Weekly Calendar */}
-      <div className="bg-[#2a1f19] rounded-3xl border border-[#3d2f26] p-5 mb-8 shadow-lg shadow-black/20">
-        <h3 className="text-xs font-semibold text-[#b5a79a] uppercase tracking-wider mb-4 ml-1">This Week</h3>
+      <div className="bg-card-bg rounded-3xl border border-card-border p-5 mb-8 shadow-lg shadow-black/5">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 ml-1">This Week</h3>
         <div className="flex justify-between items-center">
           {(() => {
             const current = new Date();
@@ -176,19 +188,19 @@ export function HabitsScreen({
               
               return (
                 <div key={i} className="flex flex-col items-center gap-2">
-                  <span className={`text-xs font-medium ${isToday ? 'text-orange-500' : 'text-[#8a7a6e]'}`}>
+                  <span className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                     {dayInitial}
                   </span>
                   <div 
                     className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-all relative
                       ${isToday 
-                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-900/40' 
-                        : 'bg-[#2a1f19] text-[#b5a79a] border border-[#3d2f26]'
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/40' 
+                        : 'bg-accent/50 text-muted-foreground border border-border'
                       }`}
                   >
                     {dateNum}
                     {isCompleted && (
-                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-md border border-[#1a1410]">
+                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-md border border-background">
                         <Check size={10} className="text-white" strokeWidth={3} />
                       </div>
                     )}
@@ -203,8 +215,8 @@ export function HabitsScreen({
       {/* Today */}
       {habits.length > 0 && (
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Today's Focus</h2>
-          <span className="text-sm text-[#ff5722]">
+          <h2 className="text-lg font-semibold text-foreground">Today's Focus</h2>
+          <span className="text-sm text-primary">
             {remainingCount} Remaining
           </span>
         </div>
@@ -216,8 +228,8 @@ export function HabitsScreen({
           <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-4">
             <span className="text-4xl filter drop-shadow-lg">✨</span>
             <div className="space-y-1">
-              <h3 className="text-lg font-medium text-white">Start your journey</h3>
-              <p className="text-sm text-[#b5a79a] max-w-[200px] mx-auto">
+              <h3 className="text-lg font-medium text-foreground">Start your journey</h3>
+              <p className="text-sm text-muted-foreground max-w-[200px] mx-auto">
                 Add your first daily habit to begin building your streak
               </p>
             </div>
@@ -235,7 +247,7 @@ export function HabitsScreen({
                 completed: habit.completed_today,
               }}
               onComplete={() => onCompleteHabit(habit.id)}
-              onDelete={() => onDeleteHabit(habit.id)}
+              onDelete={() => setHabitToDelete(habit.id)}
             />
           ))
         )}
@@ -244,27 +256,27 @@ export function HabitsScreen({
       {/* Add Habit */}
       <button
         onClick={() => onNavigate("create")}
-        className="w-full bg-[#2a1f19] hover:bg-[#3d2f26] border border-[#3d2f26] rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors mb-6"
+        className="w-full bg-card-bg hover:bg-accent border border-card-border rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors mb-6 group"
       >
-        <Plus size={20} className="text-[#ff5722]" />
-        <span className="text-[#b5a79a]">Add New Habit</span>
+        <Plus size={20} className="text-primary group-hover:scale-110 transition-transform" />
+        <span className="text-muted-foreground group-hover:text-foreground">Add New Habit</span>
       </button>
 
       {/* Mental Models */}
       <div className="mb-6">
-        <div className="bg-gradient-to-br from-orange-500/10 to-[#2a1f19] rounded-2xl p-6 border border-orange-500/20 relative overflow-hidden shadow-lg shadow-black/20">
-          <div className="absolute -top-4 -right-4 text-orange-500/10 rotate-12">
+        <div className="bg-gradient-to-br from-primary/10 to-card-bg rounded-2xl p-6 border border-primary/20 relative overflow-hidden shadow-lg shadow-black/5">
+          <div className="absolute -top-4 -right-4 text-primary/10 rotate-12">
             <svg width="100" height="100" viewBox="0 0 24 24" fill="currentColor">
                <path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H9.01703C7.91246 16 7.01703 16.8954 7.01703 18L7.01703 21H5.01703V18C5.01703 15.7909 6.80789 14 9.01703 14H12.017C14.2262 14 16.017 15.7909 16.017 18V21H14.017ZM19.017 10L19.017 13C19.017 14.1046 18.1216 15 17.017 15H14.017C12.9125 15 12.017 14.1046 12.017 13V10H10.017V13C10.017 15.2091 11.8079 17 14.017 17H17.017C19.2262 17 21.017 15.2091 21.017 13V10H19.017ZM7.01703 10L7.01703 13C7.01703 14.1046 6.1216 15 5.01703 15H2.01703C0.912458 15 0.0170288 14.1046 0.0170288 13V10H2.01703V13C2.01703 14.6569 3.36017 16 5.01703 16H6.18873C6.70054 16.6346 6.82855 17.5144 6.50571 18.2676L6.01703 19.4079L7.85243 20.1944L8.34111 19.0541C9.07065 17.3518 8.79051 15.3415 7.55835 13.9113L7.01703 13.282V10Z" />
             </svg>
           </div>
           
           <div className="relative z-10">
-             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 text-orange-400 text-xs font-medium rounded-full mb-4 border border-orange-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
+             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full mb-4 border border-primary/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
               {currentQuote.category}
             </span>
-            <p className="text-xl font-serif italic leading-relaxed mb-2 text-white/90">
+            <p className="text-xl font-serif italic leading-relaxed mb-2 text-foreground/90">
               "{currentQuote.text}"
             </p>
           </div>
@@ -281,6 +293,36 @@ export function HabitsScreen({
           streak={streak}
         />
       )}
+    
+    <AlertDialog open={!!habitToDelete} onOpenChange={(open) => !open && setHabitToDelete(null)}>
+        <AlertDialogContent className="bg-background border border-border text-foreground rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold">Delete Habit?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete this habit? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+                className="bg-secondary text-foreground border-transparent hover:bg-secondary/80 hover:text-foreground rounded-xl"
+                onClick={() => setHabitToDelete(null)}
+            >
+                Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+                onClick={() => {
+                    if (habitToDelete) {
+                        onDeleteHabit(habitToDelete);
+                        setHabitToDelete(null);
+                    }
+                }}
+                className="bg-red-500 hover:bg-red-600 rounded-xl font-semibold text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

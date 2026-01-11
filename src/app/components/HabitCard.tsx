@@ -19,16 +19,16 @@ interface HabitCardProps {
 
 export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
   const [holdProgress, setHoldProgress] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
-  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // const [isHolding, setIsHolding] = useState(false); // Unused
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ... (startHold/endHold unchanged) ...
 
   const startHold = () => {
     if (habit.completed) return;
     
-    setIsHolding(true);
+    // setIsHolding(true);
     let progress = 0;
     
     progressTimerRef.current = setInterval(() => {
@@ -39,7 +39,7 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
         clearInterval(progressTimerRef.current!);
         onComplete();
         setHoldProgress(0);
-        setIsHolding(false);
+        // setIsHolding(false);
       }
     }, 30);
   };
@@ -51,7 +51,7 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current);
     }
-    setIsHolding(false);
+    // setIsHolding(false);
     setHoldProgress(0);
   };
 
@@ -59,25 +59,25 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#2a1f19] rounded-2xl p-4 shadow-lg relative overflow-hidden group"
+      className="bg-card-bg rounded-2xl p-4 shadow-lg relative overflow-hidden group border border-card-border"
     >
       {/* Micro-identity Badge & Delete */}
       <div className="flex items-start justify-between mb-3">
-        <span className="inline-block px-3 py-1.5 bg-[#3d2f26] text-[#b5a79a] text-xs rounded-full">
+        <span className="inline-block px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium">
           {habit.microIdentity}
         </span>
         <div className="flex items-center gap-2">
             {habit.completed && (
-            <div className="w-8 h-8 rounded-full bg-[#ff5722] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                 <Check size={16} className="text-white" strokeWidth={3} />
             </div>
             )}
             <button 
                 onClick={(e) => {
                     e.stopPropagation();
-                    if(confirm("Delete this habit?")) onDelete();
+                    onDelete();
                 }}
-                className="p-1.5 text-[#8a7a6e] hover:text-red-500 hover:bg-[#3d2f26] rounded-lg transition-colors"
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-secondary rounded-lg transition-colors"
                 title="Delete Habit"
             >
                 <Trash2 size={16} />
@@ -86,8 +86,8 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
       </div>
 
       {/* Habit Name & Progress */}
-      <h3 className="text-lg font-semibold mb-1.5">{habit.name}</h3>
-      <p className="text-sm text-[#8a7a6e] mb-4">
+      <h3 className="text-lg font-semibold mb-1.5 text-foreground">{habit.name}</h3>
+      <p className="text-sm text-muted-foreground mb-4">
         {habit.progress}/{habit.goal}
       </p>
 
@@ -101,17 +101,17 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
           onTouchEnd={endHold}
           className="w-full relative touch-none"
         >
-          <div className="relative bg-[#3d2f26] hover:bg-[#4a3a2e] active:bg-[#4a3a2e] rounded-full py-3.5 overflow-hidden transition-colors">
+          <div className="relative bg-secondary hover:bg-secondary/80 active:bg-secondary/80 rounded-full py-3.5 overflow-hidden transition-colors">
             {/* Progress Background */}
             <motion.div
-              className="absolute inset-0 bg-[#ff5722] rounded-full"
+              className="absolute inset-0 bg-primary rounded-full"
               initial={{ width: '0%' }}
               animate={{ width: `${holdProgress}%` }}
               transition={{ duration: 0.1 }}
             />
             
             {/* Button Text */}
-            <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
+            <span className="relative z-10 flex items-center justify-center gap-2 text-foreground font-medium group-hover:text-foreground">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-60">
                 <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="2" />
               </svg>
@@ -120,9 +120,9 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
           </div>
         </button>
       ) : (
-        <div className="w-full bg-[#1f4d1f] rounded-full py-3.5 flex items-center justify-center gap-2">
-          <Check size={16} className="text-[#4ade80]" strokeWidth={3} />
-          <span className="text-[#4ade80] font-medium">Completed</span>
+        <div className="w-full bg-green-500/20 rounded-full py-3.5 flex items-center justify-center gap-2">
+          <Check size={16} className="text-green-500" strokeWidth={3} />
+          <span className="text-green-500 font-medium">Completed</span>
         </div>
       )}
     </motion.div>

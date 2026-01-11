@@ -2,91 +2,105 @@
 
 :root {
   --font-size: 16px;
-  
-  /* Habit Tracker Custom Colors */
-  --background-gradient-start: #3d2817;
-  --background-gradient-end: #1a1410;
-  --habit-orange: #ff5722;
-  --habit-orange-hover: #ff6b3d;
-  --card-brown: #2a1f19;
-  --card-brown-light: #3d2f26;
-  --text-muted: #8a7a6e;
-  --text-secondary: #b5a79a;
-  
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
+
+  /* LIGHT THEME (New Defaults) */
+  --background: #fdfbf9; /* Warm off-white */
+  --foreground: #1a1410; /* Dark brown text */
+
   --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
+  --card-foreground: #1a1410;
+  
+  --popover: #ffffff;
+  --popover-foreground: #1a1410;
+  
+  --primary: #ff5722; /* Habit Orange */
+  --primary-foreground: #ffffff;
+  
+  --secondary: #e5e0dc; /* Light beige for secondary actions */
+  --secondary-foreground: #1a1410;
+  
+  --muted: #f0ebe8; /* Very Light beige */
+  --muted-foreground: #8a7a6e; /* Muted brown */
+  
+  --accent: #f5f0ec;
+  --accent-foreground: #1a1410;
+  
+  --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  
+  --border: #e6e1de;
+  --input: #e6e1de;
+  --ring: #ff5722;
+  
   --radius: 1rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Custom Habit Tracker Semantic Vars */
+  --bg-gradient-start: #fdfbf9;
+  --bg-gradient-end: #f4f1ee;
+  
+  --card-bg: #ffffff;
+  --card-border: #e6e1de;
+  
+  --nav-bg: #ffffff;
+  --nav-border: #e6e1de;
+  --nav-item-active: #f5f0ec;
+
+  /* Legacy Aliases (for backward compatibility) */
+  --habit-orange: var(--primary);
+  --habit-orange-hover: #ff6b3d; /* Keep or map? */
+  --card-brown: var(--card-bg);
+  --card-brown-light: var(--card-border);
+  --text-muted: var(--muted-foreground);
+  --text-secondary: var(--foreground); /* Approx */
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  /* DARK THEME (Existing App Look) */
+  --background: #1a1410;
+  --foreground: #ffffff;
+  
+  --card: #2a1f19;
+  --card-foreground: #ffffff;
+  
+  --popover: #2a1f19;
+  --popover-foreground: #ffffff;
+  
+  --primary: #ff5722;
+  --primary-foreground: #ffffff;
+  
+  --secondary: #3d2f26;
+  --secondary-foreground: #ffffff;
+  
+  --muted: #2a1f19;
+  --muted-foreground: #8a7a6e;
+  
+  --accent: #3d2f26;
+  --accent-foreground: #ffffff;
+  
+  --destructive: #7f1d1d;
+  --destructive-foreground: #ffffff;
+  
+  --border: #3d2f26;
+  --input: #3d2817;
+  --ring: #ff6b3d;
+
+  /* Custom Habit Tracker Semantic Vars */
+  --bg-gradient-start: #3d2817;
+  --bg-gradient-end: #1a1410;
+  
+  --card-bg: #2a1f19;
+  --card-border: #3d2f26;
+  
+  --nav-bg: #1a1410;
+  --nav-border: #3d2f26;
+  --nav-item-active: #2a1f19;
+
+  /* Legacy Aliases */
+  --habit-orange: var(--primary);
+  --card-brown: var(--card-bg);
+  --card-brown-light: var(--card-border);
+  --text-muted: var(--muted-foreground);
+  --text-secondary: #b5a79a;
 }
 
 @theme inline {

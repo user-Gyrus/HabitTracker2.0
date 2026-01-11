@@ -1,11 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { ThemeProvider } from "next-themes";
 import App from "./app/App";
 
 import "./styles/tailwind.css";
 import "./styles/fonts.css";
 import "./styles/theme.css";
 import "./styles/index.css";
+import "sonner/dist/styles.css";
 
 
 
@@ -19,6 +21,8 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>
 );

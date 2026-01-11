@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -38,6 +39,10 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   // Streak passed via props
   const [notificationsEnabled, setNotificationsEnabled] =
     useState<boolean>(true);
+  const { theme, setTheme } = useTheme();
+  // Ensure hydration match
+  // const [mounted, setMounted] = useState(false);
+  // useEffect(() => setMounted(true), []);
 
   /* ---------------------------
      LOAD PROFILE + STREAK (MOCK)
@@ -130,7 +135,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
       <div className="flex items-center justify-between px-5 py-6">
         <button
           onClick={isModal && onClose ? onClose : () => onNavigate("habits")}
-          className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
+          className="p-2 hover:bg-secondary rounded-lg transition-colors"
         >
           <ChevronLeft size={24} />
         </button>
@@ -138,15 +143,15 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
         <div className="w-10" />
       </div>
 
-      <div className="px-5 pb-6">
+      <div className="px-5 pb-28">
         {/* Profile Section */}
         <div className="flex flex-col items-center mb-6">
           <div className="relative mb-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-lg" />
             <button 
               onClick={isEditing ? handleSaveName : handleStartEdit}
-              className={`absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-[#1a1410] transition-colors ${
-                isEditing ? "bg-green-500 hover:bg-green-600" : "bg-[#ff5722] hover:bg-[#ff6b3d]"
+              className={`absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-background transition-colors ${
+                isEditing ? "bg-green-500 hover:bg-green-600" : "bg-primary hover:bg-primary/90"
               }`}
             >
               {isEditing ? (
@@ -156,7 +161,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
               )}
             </button>
           </div>
-          <h2 className="text-2xl font-bold mb-1">
+          <h2 className="text-2xl font-bold mb-1 text-foreground">
             {isEditing ? (
               <input
                 type="text"
@@ -165,92 +170,128 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSaveName();
                 }}
-                className="bg-transparent border-b border-[#ff5722] text-2xl font-bold text-center focus:outline-none text-white w-full"
+                className="bg-transparent border-b border-primary text-2xl font-bold text-center focus:outline-none text-foreground w-full"
                 autoFocus
               />
             ) : (
               profile.display_name
             )}
           </h2>
-          <p className="text-[#8a7a6e] mb-2">
+          <p className="text-muted-foreground mb-2">
             @{profile.username ?? "user"}
           </p>
           
           {/* Friend Code */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#2a1f19] rounded-lg border border-[#3d2f26]">
-            <span className="text-xs text-[#8a7a6e] font-mono">Friend Code:</span>
-            <span className="text-sm font-mono text-[#ff5722] font-semibold">
+          <div className="flex items-center gap-2 px-4 py-2 bg-card-bg rounded-lg border border-card-border">
+            <span className="text-xs text-muted-foreground font-mono">Friend Code:</span>
+            <span className="text-sm font-mono text-primary font-semibold">
               {profile.friendCode || "HABIT-XXXXXX"}
             </span>
           </div>
         </div>
 
         {/* Current Streak */}
-        <div className="bg-gradient-to-br from-[#ff5722] to-[#ff6b3d] rounded-2xl p-6 mb-6 text-center">
-          <p className="text-sm text-white/80 mb-2 uppercase tracking-wide">
+        <div className="bg-gradient-to-br from-primary to-orange-400 rounded-2xl p-6 mb-6 text-center shadow-lg shadow-primary/20">
+          <p className="text-sm text-white/90 mb-2 uppercase tracking-wide font-medium">
             Current Streak
           </p>
-          <p className="text-5xl font-bold mb-2">{streak}</p>
-          <p className="text-white/90">Days on fire 🔥</p>
+          <p className="text-5xl font-bold mb-2 text-white">{streak}</p>
+          <p className="text-white/95 font-medium">Days on fire 🔥</p>
         </div>
 
         {/* Preferences */}
         <div className="mb-6">
-          <h3 className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-3 px-1">
+          <h3 className="text-xs text-muted-foreground uppercase tracking-wide mb-3 px-1 font-semibold">
             Preferences
           </h3>
-          <div className="bg-[#2a1f19] rounded-2xl overflow-hidden divide-y divide-[#3d2f26]">
-            <div className="w-full flex items-center justify-between p-4">
+          <div className="bg-card-bg rounded-2xl overflow-hidden divide-y divide-card-border border border-card-border shadow-sm">
+            
+            {/* Theme Toggle */}
+            <div className="w-full flex items-center justify-between p-4 transition-colors hover:bg-accent/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#ff5722]/20 flex items-center justify-center">
-                  <Bell size={20} className="text-[#ff5722]" />
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                   {theme === 'dark' ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                      </svg>
+                   ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                        <circle cx="12" cy="12" r="4"/>
+                        <path d="M12 2v2"/>
+                        <path d="M12 20v2"/>
+                        <path d="m4.93 4.93 1.41 1.41"/>
+                        <path d="m17.66 17.66 1.41 1.41"/>
+                        <path d="M2 12h2"/>
+                        <path d="M20 12h2"/>
+                        <path d="m6.34 17.66-1.41 1.41"/>
+                        <path d="m19.07 4.93-1.41 1.41"/>
+                      </svg>
+                   )}
                 </div>
-                <span>Push Notifications</span>
+                <span className="text-foreground font-medium">
+                    {theme === 'dark' ? 'Dark Theme' : 'Light Theme'}
+                </span>
+              </div>
+              <Switch.Root
+                checked={theme === 'dark'}
+                onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                className="w-11 h-6 bg-input rounded-full relative data-[state=checked]:bg-primary transition-colors duration-300 cursor-pointer"
+              >
+                <Switch.Thumb className="block w-5 h-5 bg-white rounded-full transition-transform duration-300 translate-x-0.5 data-[state=checked]:translate-x-[22px] shadow-sm" />
+              </Switch.Root>
+            </div>
+
+            <div className="w-full flex items-center justify-between p-4 transition-colors hover:bg-accent/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bell size={20} className="text-primary" />
+                </div>
+                <span className="text-foreground font-medium">Push Notifications</span>
               </div>
               <Switch.Root
                 checked={notificationsEnabled}
                 onCheckedChange={setNotificationsEnabled}
-                className="w-11 h-6 bg-[#3d2f26] rounded-full relative data-[state=checked]:bg-[#ff5722]"
+                className="w-11 h-6 bg-input rounded-full relative data-[state=checked]:bg-primary transition-colors duration-300 cursor-pointer"
               >
-                <Switch.Thumb className="block w-5 h-5 bg-white rounded-full transition-transform translate-x-0.5 data-[state=checked]:translate-x-[22px]" />
+                <Switch.Thumb className="block w-5 h-5 bg-white rounded-full transition-transform duration-300 translate-x-0.5 data-[state=checked]:translate-x-[22px] shadow-sm" />
               </Switch.Root>
             </div>
 
-            <button className="w-full flex items-center justify-between p-4 hover:bg-[#3d2f26]">
+            <button className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
                   <UserPlus size={20} className="text-green-500" />
                 </div>
-                <span>Invite a friend</span>
+                <span className="text-foreground font-medium">Invite a friend</span>
               </div>
-              <ChevronRight size={20} className="text-[#8a7a6e]" />
+              <ChevronRight size={20} className="text-muted-foreground" />
             </button>
           </div>
         </div>
 
         {/* Account */}
         <div>
-          <h3 className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-3 px-1">
+          <h3 className="text-xs text-muted-foreground uppercase tracking-wide mb-3 px-1 font-semibold">
             Account
           </h3>
-          <div className="bg-[#2a1f19] rounded-2xl overflow-hidden divide-y divide-[#3d2f26]">
+          <div className="bg-card-bg rounded-2xl overflow-hidden divide-y divide-card-border border border-card-border shadow-sm">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-between p-4 hover:bg-[#3d2f26]">
+              className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                   <LogOut size={20} className="text-blue-500" />
                 </div>
-                <span>Logout</span>
+                <span className="text-foreground font-medium">Logout</span>
               </div>
-              <ChevronRight size={20} className="text-[#8a7a6e]" />
+              <ChevronRight size={20} className="text-muted-foreground" />
             </button>
             
           </div>
         </div>
 
         <div className="text-center mt-8">
-          <p className="text-xs text-[#8a7a6e]">Accountability Board v1.0.6 (Local)</p>
+          <p className="text-xs text-muted-foreground">Accountability Board v1.1.0 (Themed)</p>
         </div>
       </div>
     </div>
@@ -262,12 +303,12 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
         className="fixed inset-0 z-50 flex items-center justify-center px-5"
         onClick={onClose}
       >
-        {/* Backdrop with blur */}
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-lg" />
+        {/* Backdrop with blur - lighter in light mode */}
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-lg" />
         
         {/* Modal Content */}
         <div 
-          className="relative w-full max-w-md bg-gradient-to-b from-[#3d2817] to-[#1a1410] rounded-3xl shadow-2xl max-h-[75vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          className="relative w-full max-w-md bg-background border border-card-border rounded-3xl shadow-2xl max-h-[75vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           onClick={(e) => e.stopPropagation()}
         >
           {profileContent}

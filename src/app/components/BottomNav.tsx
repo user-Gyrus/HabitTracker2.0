@@ -9,22 +9,22 @@ interface BottomNavProps {
 
 export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#2a1f19] border-t border-[#3d2f26] max-w-md mx-auto z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-nav-bg/95 backdrop-blur-xl border-t border-nav-border max-w-md mx-auto z-[100] shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
       <div className="flex items-center justify-around py-3">
         <button
           onClick={() => onNavigate('habits')}
           className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
-            currentScreen === 'habits' ? 'text-[#ff5722]' : 'text-[#8a7a6e]'
+            currentScreen === 'habits' ? 'text-primary' : 'text-muted-foreground'
           }`}
         >
-          <Flame size={24} fill={currentScreen === 'habits' ? '#ff5722' : 'none'} />
+          <Flame size={24} className={currentScreen === 'habits' ? 'fill-primary' : ''} />
           <span className="text-xs">Habits</span>
         </button>
         
         <button
           onClick={() => onNavigate('social')}
           className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
-            currentScreen === 'social' ? 'text-[#ff5722]' : 'text-[#8a7a6e]'
+            currentScreen === 'social' ? 'text-primary' : 'text-muted-foreground'
           }`}
         >
           <Users size={24} />

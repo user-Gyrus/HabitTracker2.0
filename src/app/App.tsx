@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { v4 as uuidv4 } from "uuid";
+import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
+import { Flame } from "lucide-react";
+import { AchievementProvider, useAchievement } from "./context/AchievementContext";
 
 import { HabitsScreen } from "./components/HabitsScreen";
 import { CreateHabitScreen } from "./components/CreateHabitScreen";
@@ -40,7 +44,16 @@ const STORAGE_KEY_HABITS = "habit-tracker-habits";
 const STORAGE_KEY_SESSION = "habit-tracker-session";
 
 export default function App() {
+  return (
+    <AchievementProvider>
+      <AppContent />
+    </AchievementProvider>
+  );
+}
+
+function AppContent() {
   const [session, setSession] = useState<any>(null);
+  const { showAchievement } = useAchievement();
   const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
@@ -81,6 +94,30 @@ export default function App() {
   };
 
   const updateSession = (updatedUser: any) => {
+    // Check for streak change
+    if (session?.streak !== undefined && updatedUser.streak !== undefined) {
+      const oldStreak = session.streak;
+      const newStreak = updatedUser.streak;
+
+      if (newStreak > oldStreak) {
+        if (oldStreak === 0 && newStreak >= 1) {
+             // FIRST STREAK SPECIAL ACHIEVEMENT (CENTERED)
+             showAchievement({
+                 title: "Streak Ignited!",
+                 description: "You've successfully started your habit streak. Keep the fire burning!",
+                 type: "streak",
+                 icon: <Flame className="w-12 h-12 text-orange-500 fill-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] animate-pulse" />
+             });
+        } else {
+             // NORMAL STREAK TOAST
+             toast.success(`${newStreak} Day Streak!`, {
+                description: "Another day, another victory.",
+                icon: <Flame className="w-5 h-5 text-orange-500" />
+             });
+        }
+      }
+    }
+
     const newSession = { ...session, ...updatedUser };
     setSession(newSession);
     localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
@@ -282,10 +319,13 @@ export default function App() {
              updateSession(updatedSession);
          }
          setCurrentScreen("habits");
+         toast.success("Habit created successfully!");
       } else {
+        toast.error("Failed to create habit");
         console.error("Failed to create habit");
       }
     } catch (err) {
+      toast.error("Error creating habit");
       console.error("Error creating habit", err);
     }
   };
@@ -392,9 +432,10 @@ export default function App() {
               }
           });
           
-          if (res.ok) {
+           if (res.ok) {
               const data = await res.json();
               setHabits(prev => prev.filter(h => h.id !== habitId));
+              toast.success("Habit deleted");
               // Update session streak if returned and changed
               if (data.streak !== undefined && session) {
                    updateSession({ 
@@ -403,8 +444,11 @@ export default function App() {
                        lastCompletedDate: data.lastCompletedDate 
                    });
               }
+          } else {
+             toast.error("Failed to delete habit");
           }
       } catch (err) {
+          toast.error("Error deleting habit");
           console.error("Failed to delete habit", err);
       }
   };
@@ -429,7 +473,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#3d2817] to-[#1a1410] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[var(--bg-gradient-start)] to-[var(--bg-gradient-end)] text-foreground overflow-x-hidden transition-colors duration-500">
       <div className="max-w-md mx-auto min-h-screen flex flex-col relative">
         <main className="flex-1 pb-20 overflow-y-auto">
           <AnimatePresence mode="wait">
@@ -491,6 +535,7 @@ export default function App() {
         
 
       </div>
+      <Toaster />
     </div>
 
   );
