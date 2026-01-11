@@ -80,8 +80,28 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
         try {
             const res = await api.get("/friends");
             const mappedFriends = res.data.map((f: any) => {
-                const today = new Date().toISOString().slice(0, 10);
-                const lastDate = f.lastCompletedDate ? new Date(f.lastCompletedDate).toISOString().slice(0, 10) : "";
+                // FIX: Use local date parts to avoid UTC shift problems for "Today"
+                // This aligns with user's local timezone
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const today = `${year}-${month}-${day}`;
+                
+                // Use Authoritative IST Date from backend if available
+                let isCompletedToday = false;
+                
+                if (f.lastCompletedDateIST) {
+                     isCompletedToday = f.lastCompletedDateIST === today;
+                } else if (f.lastCompletedDate) {
+                     // Fallback for migration/legacy
+                     const d = new Date(f.lastCompletedDate);
+                     const dYear = d.getFullYear();
+                     const dMonth = String(d.getMonth() + 1).padStart(2, '0');
+                     const dDay = String(d.getDate()).padStart(2, '0');
+                     const lastDate = `${dYear}-${dMonth}-${dDay}`;
+                     isCompletedToday = lastDate === today;
+                }
                 
                 return {
                     id: f._id,
@@ -90,7 +110,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                     streak: f.streak || 0,
                     isOnline: false, // Could implement real online status later
                     friendCode: f.friendCode,
-                    completedToday: lastDate === today
+                    completedToday: isCompletedToday
                 };
             });
             setFriends(mappedFriends);
@@ -98,7 +118,14 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
             console.error("Failed to fetch friends", err);
         }
     };
+
+    // Initial fetch
     fetchFriends();
+
+    // Poll every 10 seconds for real-time updates
+    const intervalId = setInterval(fetchFriends, 10000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const copyFriendCode = () => {

@@ -146,11 +146,12 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
         const streakDocs = await Streak.find({ user: { $in: friendIds } });
 
         // Map streaks to a dictionary for O(1) lookup
-        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any } } = {};
+        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any, lastCompletedDateIST: string } } = {};
         streakDocs.forEach(doc => {
             streakMap[doc.user.toString()] = {
                 streakCount: doc.streakCount,
-                lastCompletedDate: doc.lastCompletedDate
+                lastCompletedDate: doc.lastCompletedDate,
+                lastCompletedDateIST: doc.lastCompletedDateIST || ""
             };
         });
 
@@ -161,7 +162,8 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
             username: f.username,
             friendCode: f.friendCode,
             streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
-            lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null
+            lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
+            lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null
         }));
 
         res.json(friendsWithStreak);

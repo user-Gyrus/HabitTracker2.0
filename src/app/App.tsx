@@ -271,6 +271,16 @@ export default function App() {
       });
       
       if (res.ok) {
+         const data = await res.json();
+         // Update session streak/lastCompletedDate if returned
+         if (data.streak !== undefined && session) {
+             const updatedSession = {
+                 ...session,
+                 streak: data.streak,
+                 lastCompletedDate: data.lastCompletedDate
+             };
+             updateSession(updatedSession);
+         }
          setCurrentScreen("habits");
       } else {
         console.error("Failed to create habit");
@@ -387,7 +397,11 @@ export default function App() {
               setHabits(prev => prev.filter(h => h.id !== habitId));
               // Update session streak if returned and changed
               if (data.streak !== undefined && session) {
-                   updateSession({ ...session, streak: data.streak });
+                   updateSession({ 
+                       ...session, 
+                       streak: data.streak,
+                       lastCompletedDate: data.lastCompletedDate 
+                   });
               }
           }
       } catch (err) {
