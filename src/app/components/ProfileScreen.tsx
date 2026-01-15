@@ -209,8 +209,9 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
 
   const handleWhatsAppShare = () => {
     if (!profile?.friendCode) return;
-    const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${profile.friendCode} to join my squad so we can keep our fire streak alive together.`;
-    const shareUrl = "https://atomiq.app";
+    const shareText = `I’m trying this habit app called Atomiq.
+It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${profile.friendCode} to add me as your friend!`;
+    const shareUrl = "https://atomiq.club";
     const fullText = `${shareText} ${shareUrl}`;
     const encodedText = encodeURIComponent(fullText);
     
