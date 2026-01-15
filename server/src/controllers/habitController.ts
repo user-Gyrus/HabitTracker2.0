@@ -15,9 +15,44 @@ const syncStreakInternal = async (userId: string) => {
     const allHabits = await Habit.find({ user: userId } as any);
 
     // 2. Check if ALL active habits are completed for TODAY (IST)
+    // Filter habits that are applicable for today (Recurrence + Duration)
+    const todayDateObj = new Date(todayIST); // Parsing YYYY-MM-DD assumes UTC midnight in JS usually, but accurate enough for diff
+    const dayOfWeek = todayDateObj.getDay(); // 0-6
+    const todayNum = dayOfWeek === 0 ? 7 : dayOfWeek; // 1-7
+
+    const activeHabitsForToday = allHabits.filter((h: any) => {
+        // A. Duration Check
+        if (h.duration) {
+             const created = new Date(h.createdAt);
+             // Normalize to YYYY-MM-DD to match todayIST resolution
+             const createdStr = created.toISOString().split('T')[0];
+             const createdDateOnly = new Date(createdStr);
+             const todayDateOnly = new Date(todayIST);
+             
+             const diffTime = todayDateOnly.getTime() - createdDateOnly.getTime();
+             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+             
+             if (diffDays >= h.duration) return false;
+        }
+
+        // B. Active Day Check
+        if (h.activeDays && !h.activeDays.includes(todayNum)) return false;
+
+        return true;
+    });
+
     let allComplete = false;
-    if (allHabits.length > 0) {
-        allComplete = allHabits.every((h: any) => h.completions && h.completions.includes(todayIST));
+    if (activeHabitsForToday.length > 0) {
+        allComplete = activeHabitsForToday.every((h: any) => h.completions && h.completions.includes(todayIST));
+    } else {
+        // If there are NO active habits for today (e.g. rest day), 
+        // We count it as "streak kept" ONLY if user actually has habits (Rest Day).
+        // If user has 0 habits total, they shouldn't get a streak.
+        if (allHabits.length > 0) {
+             allComplete = true; 
+        } else {
+             allComplete = false;
+        }
     }
 
     // 3. Update Streak Collection Logic

@@ -22,10 +22,10 @@ interface Habit {
   _id: string; // Changed from id to _id for MongoDB compatibility
   name: string;
   microIdentity: string | null; // Mapped from backend 'microIdentity'
-  habit_type: string;
+  type: string; // Corrected from habit_type
   goal: number;
   activeDays: number[]; // Matches backend activeDays [1..7]
-  created_at: string;
+  createdAt: string; // Corrected from created_at
   completions: string[]; // List of ISO date strings (YYYY-MM-DD)
   visibility?: 'public' | 'private';
   reminderTime?: string | null; // Backend uses reminderTime (camelCase)
@@ -160,9 +160,26 @@ function AppContent() {
         const currentDayIndex = now.getDay(); // 0 (Sun) to 6 (Sat)
         const todayNum = currentDayIndex === 0 ? 7 : currentDayIndex;
 
-        const todaysHabits = allHabits.filter(h => 
-            h.activeDays && h.activeDays.includes(todayNum)
-        );
+        const todaysHabits = allHabits.filter(h => {
+            // 1. Duration Check
+            if (h.createdAt && h.duration) {
+                const startDate = new Date(h.createdAt);
+                // Reset time to ensure day-based calculation
+                const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                
+                const diffTime = currentDay.getTime() - startDay.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                // If current day is beyond duration (e.g. Day 21 on a 21-day habit), hide it
+                // Assuming duration = days active. Day 0 to Day 20 = 21 days. 
+                // So if diffDays >= duration, it's expired.
+                if (diffDays >= h.duration) return false;
+            }
+
+            // 2. Active Day Check
+            return h.activeDays && h.activeDays.includes(todayNum);
+        });
 
         const normalized: UIHabit[] = todaysHabits.map((h) => ({
           id: h._id, // MongoDB uses _id
