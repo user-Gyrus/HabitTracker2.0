@@ -1,74 +1,107 @@
-# React + TypeScript + Vite
+# Atomiq v1.1 🚀
+**"Don't Break the Chain"**
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Atomiq is a premium, gamified habit tracker designed to help you build and sustain positive habits through social accountability and powerful visualization. Built as a Progressive Web App (PWA), it offers a native-app-like experience across all your devices.
 
-Currently, two official plugins are available:
+## 🔥 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Habit Management
+*   **Flexible Tracking:** Create daily habits with custom schedules (specific days of the week).
+*   **Duration Challenges:** Set habits for specific durations (e.g., "21 Days to Break", "66 Days to Build").
+*   **Micro-Habits:** Breakdown large goals into small, actionable "micro-identities".
+*   **Visual History:** View your completion history with calendar-like tick marks.
 
-## React Compiler
+### 2. Gamification & Streaks
+*   **Streak System:** Keep your fire burning! Visual streak counters and animations reward consistency.
+*   **Achievements:** Unlock badges and milestones (e.g., "Streak Ignited") as you progress.
+*   **Levels:** Gain XP for every completion and level up your profile.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 3. Social Squads 🤝
+*   **Build Together:** Create or join "Squads" to track habits with friends.
+*   **Invite System:** Easily invite friends via unique friend codes or direct share links.
+*   **Leaderboards:** See who's carrying the boats and who's slacking off.
+*   **Accountability:** Social pressure done right.
 
-## Expanding the ESLint configuration
+### 4. Premium Experience
+*   **PWA Support:** Install directly to your home screen. Works offline and feels like a native app.
+*   **Beautiful UI:** Glassmorphism design, smooth `Framer Motion` animations, and a polished dark/light mode.
+*   **Mental Models:** Daily rotating motivational quotes to keep your mindset sharp.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Frontend
+*   **Framework:** React (TypeScript) + Vite
+*   **Styling:** TailwindCSS + CSS Variables (Theming)
+*   **Animations:** Framer Motion
+*   **Icons:** Lucide React
+*   **PWA:** Vite Plugin PWA
+*   **State Management:** React Context + Local Storage (Session)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Backend
+*   **Runtime:** Node.js + Express
+*   **Database:** MongoDB Atlas (Mongoose)
+*   **Authentication:** Passport.js (Google OAuth 2.0 + Local Strategy) & JWT
+*   **Security:** CORS, Bcrypt (Password Hashing)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+*   Node.js (v16+)
+*   MongoDB (Local or Atlas)
+
+### 1. Installation
+Clone the repository and install dependencies for both frontend and backend.
+
+```bash
+# Install Root (Frontend) Dependencies
+npm install
+
+# Install Server Dependencies
+cd server
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Environment Configuration
+Create a `.env` file in the `server/` directory with the following variables:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```env
+NODE_ENV=development
+PORT=5000
+DATABASE_URL=mongodb://localhost:27017/habit-tracker # Or your Atlas URL
+JWT_SECRET=your_super_secret_key
+SESSION_SECRET=another_secret_key
+CLIENT_URL=http://localhost:5173
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Google OAuth (Optional for local testing if using email auth)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
 ```
-# Atomiq
+
+### 3. Running the App
+You can run both the frontend and backend with a single command from the **root directory**:
+
+```bash
+# Runs Frontend (Vite) and Backend (Nodemon) concurrently
+npm run dev
+```
+
+*   **Frontend:** `http://localhost:5173`
+*   **Backend:** `http://localhost:5000`
+
+---
+
+## 📱 PWA Installation
+1.  Open the app in Chrome/Safari on your mobile device.
+2.  Tap "Share" (iOS) or the Menu (Android).
+3.  Select **"Add to Home Screen"**.
+4.  Launch Atomiq as a standalone app!
+
+---
+
+## 🤝 Contributing
+Built with ❤️ by Nanda Kumar & Team.

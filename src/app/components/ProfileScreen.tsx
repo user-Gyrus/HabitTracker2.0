@@ -175,9 +175,10 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
      if (!profile?.friendCode) return;
      
      // Exact text as requested
-     const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${profile.friendCode} to join my squad so we can keep our fire streak alive together.`;
-     const shareUrl = "https://atomiq.app";
-     const shareTitle = "Join my Atomiq Squad";
+     const shareText = `I’m trying this habit app called Atomiq.
+It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${profile.friendCode} to add me as your friend!`;
+     const shareUrl = "https://atomiq.club";
+     const shareTitle = "Join Atomiq with me";
 
      const shareData = {
         title: shareTitle,
