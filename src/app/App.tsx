@@ -5,6 +5,7 @@ import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 import { Flame } from "lucide-react";
 import { AchievementProvider, useAchievement } from "./context/AchievementContext";
+import api from "../lib/api";
 
 import { HabitsScreen } from "./components/HabitsScreen";
 import { CreateHabitScreen } from "./components/CreateHabitScreen";
@@ -68,7 +69,20 @@ function AppContent() {
     // Check for existing session
     const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
     if (storedSession) {
-      setSession(JSON.parse(storedSession));
+      const parsedSession = JSON.parse(storedSession);
+      setSession(parsedSession);
+      
+      // FETCH FRESH DATA (including verified streak)
+      if (parsedSession.token) {
+          api.get('/auth/me')
+          .then(res => {
+              // Merge with existing session (preserve token)
+              const newSession = { ...parsedSession, ...res.data };
+              setSession(newSession);
+              localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
+          })
+          .catch(err => console.error("Session refresh failed", err));
+      }
     }
     
     // Check onboarding status
@@ -132,12 +146,8 @@ function AppContent() {
 
     const loadHabits = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/habits', {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
-        });
-        const allHabits: Habit[] = await res.json();
+        const res = await api.get('/habits');
+        const allHabits: Habit[] = res.data;
         // FIX: Use local date parts to avoid UTC shift problems
         const now = new Date();
         const year = now.getFullYear();
@@ -298,32 +308,21 @@ function AppContent() {
   ---------------------------- */
   const handleCreateHabit = async (habitData: any): Promise<void> => {
     try {
-      const res = await fetch('http://localhost:5000/api/habits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.token}`,
-        },
-        body: JSON.stringify(habitData),
-      });
+      const res = await api.post('/habits', habitData);
+      const data = res.data;
       
-      if (res.ok) {
-         const data = await res.json();
-         // Update session streak/lastCompletedDate if returned
-         if (data.streak !== undefined && session) {
-             const updatedSession = {
-                 ...session,
-                 streak: data.streak,
-                 lastCompletedDate: data.lastCompletedDate
-             };
-             updateSession(updatedSession);
-         }
-         setCurrentScreen("habits");
-         toast.success("Habit created successfully!");
-      } else {
-        toast.error("Failed to create habit");
-        console.error("Failed to create habit");
+      // Update session streak/lastCompletedDate if returned
+      if (data.streak !== undefined && session) {
+          const updatedSession = {
+              ...session,
+               streak: data.streak,
+               streakHistory: data.streakHistory,
+               lastCompletedDate: data.lastCompletedDate
+          };
+          updateSession(updatedSession);
       }
+      setCurrentScreen("habits");
+      toast.success("Habit created successfully!");
     } catch (err) {
       toast.error("Error creating habit");
       console.error("Error creating habit", err);
@@ -349,68 +348,25 @@ function AppContent() {
     );
 
     try {
-        // First get the habit to append completion
-        // ideally backend handles "toggle completion for today" logic to be race-condition safe
-        // For now, let's fetch, append, and update.
-        // OR, we can just send the new completions list.
-        // BETTER: Let the backend handle logic?
-        // CURRENT CONTROLLER: expects "completions" array update.
-        
-        // Let's implement a quick fetch-modify-save pattern for now or just append blindly?
-        // Safest with current controller:
-        const token = session.token;
-        const res = await fetch(`http://localhost:5000/api/habits?id=${habitId}`, /* This is GET all, need GET ONE or just filter from state? */
-        /* Actually we already have the state? No, we have UIHabit */
-        /* Let's construct the update. Ideally we need the full habit. */
-        /* Let's simplify: WE need to change the backend to support "mark complete" endpoint OR just push the date. */
-        /* Given the constraints, let's assume we can push the current date to the 'completions' array via PUT */
-        
-        /* WAIT: Current controller updateHabit replaces the completions array. */
-        /* So we need the OLD completions array. */
-        /* Quick fix: Add specific 'toggle-completion' endpoint or logic to controller later? */
-        /* For now: read from server, update, write back. */
-        
-         {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        // Since we don't have GET /:id in the list exposed to UI (we used GET / for all), 
-        // we can find it if we kept full habits in state. But we only kept UIHabit.
-        // Let's fetch the list again to find it is inefficient but safe.
-        // Actually, let's just make the Update controller smarter in a further step or accept that we need to fetch first.
-        
-        // Simpler for this step: Do nothing backend side? No, must persist.
-        // Let's re-fetch all habits to find the one we need?
-        
-        const allRes = await fetch('http://localhost:5000/api/habits', {
-             headers: { Authorization: `Bearer ${token}` }
-        });
-        const allHabits: Habit[] = await allRes.json();
+        const allRes = await api.get('/habits');
+        const allHabits: Habit[] = allRes.data;
         const targetHabit = allHabits.find((h:any) => h._id === habitId);
         
         if (targetHabit && !targetHabit.completions.includes(today)) {
              const updatedCompletions = [...targetHabit.completions, today];
-             const updateRes = await fetch(`http://localhost:5000/api/habits/${habitId}`, {
-                 method: 'PUT',
-                 headers: {
-                     'Content-Type': 'application/json',
-                     Authorization: `Bearer ${token}`
-                 },
-                 body: JSON.stringify({ completions: updatedCompletions })
-             });
+             const updateRes = await api.put(`/habits/${habitId}`, { completions: updatedCompletions });
+             const data = updateRes.data;
              
-              if (updateRes.ok) {
-                  const data = await updateRes.json();
-                  // Update session streak and lastCompletedDate if returned
-                  if (data.streak !== undefined && session) {
-                      const updatedSession = {
-                        ...session,
-                        streak: data.streak,
-                        lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
-                      };
-                      updateSession(updatedSession);
-                  }
-              }
+             // Update session streak and lastCompletedDate if returned
+             if (data.streak !== undefined && session) {
+                 const updatedSession = {
+                   ...session,
+                   streak: data.streak,
+                   streakHistory: data.streakHistory,
+                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
+                 };
+                 updateSession(updatedSession);
+             }
         }
 
     } catch (err) {
@@ -425,27 +381,19 @@ function AppContent() {
   ---------------------------- */
   const handleDeleteHabit = async (habitId: string) => {
       try {
-          const res = await fetch(`http://localhost:5000/api/habits/${habitId}`, {
-              method: 'DELETE',
-              headers: {
-                  Authorization: `Bearer ${session.token}`
-              }
-          });
+          const res = await api.delete(`/habits/${habitId}`);
+          const data = res.data;
           
-           if (res.ok) {
-              const data = await res.json();
-              setHabits(prev => prev.filter(h => h.id !== habitId));
-              toast.success("Habit deleted");
-              // Update session streak if returned and changed
-              if (data.streak !== undefined && session) {
-                   updateSession({ 
-                       ...session, 
-                       streak: data.streak,
-                       lastCompletedDate: data.lastCompletedDate 
-                   });
-              }
-          } else {
-             toast.error("Failed to delete habit");
+          setHabits(prev => prev.filter(h => h.id !== habitId));
+          toast.success("Habit deleted");
+          // Update session streak if returned and changed
+          if (data.streak !== undefined && session) {
+               updateSession({ 
+                   ...session, 
+                   streak: data.streak,
+                   streakHistory: data.streakHistory,
+                   lastCompletedDate: data.lastCompletedDate 
+               });
           }
       } catch (err) {
           toast.error("Error deleting habit");
@@ -492,6 +440,7 @@ function AppContent() {
                     onNavigate={setCurrentScreen}
                     updateSession={updateSession}
                     streak={session?.streak || 0}
+                    streakHistory={session?.streakHistory || []}
                     lastCompletedDate={session?.lastCompletedDate}
                   />
               </motion.div>

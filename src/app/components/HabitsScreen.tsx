@@ -58,6 +58,7 @@ interface HabitsScreenProps {
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
   updateSession?: (updatedUser: any) => void;
   streak?: number;
+  streakHistory?: string[]; // Added
   lastCompletedDate?: string | Date | null;
 }
 
@@ -69,6 +70,7 @@ export function HabitsScreen({
   onNavigate,
   updateSession,
   streak = 0,
+  streakHistory = [], // Added
   lastCompletedDate,
 }: HabitsScreenProps) {
   // Select a random quote only once on mount
@@ -146,10 +148,14 @@ export function HabitsScreen({
             const startOfWeek = new Date(current);
             startOfWeek.setDate(current.getDate() - currentDay); // Assuming Sunday start
 
-            // Calculate which days should have checkmarks based on streak
-            // Use local dates to match user's perception of "today"
+            // Calculate which days should have checkmarks based on streak history
             const completedDates = new Set<string>();
-            if (streak > 0 && lastCompletedDate) {
+            
+            // Use streakHistory if available (it contains YYYY-MM-DD strings)
+            if (streakHistory && streakHistory.length > 0) {
+                streakHistory.forEach(dateStr => completedDates.add(dateStr));
+            } else if (streak > 0 && lastCompletedDate) {
+                 // Fallback for backward compatibility or if history is empty but streak exists
               // Convert UTC timestamp to local date
               const lastCompletedUTC = new Date(lastCompletedDate);
               const lastCompletedLocal = new Date(

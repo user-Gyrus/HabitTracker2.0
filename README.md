@@ -71,4 +71,4 @@ export default defineConfig([
   },
 ])
 ```
-# HabitTracker2.0
+# Atomiq

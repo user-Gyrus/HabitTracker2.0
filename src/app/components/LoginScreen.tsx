@@ -118,7 +118,7 @@ export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
 
           {/* Google Auth Button - Show on both login and signup */}
           <button
-            onClick={() => window.location.href = "http://localhost:5000/api/auth/google"}
+            onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/google`}
             className="w-full bg-card-bg hover:bg-secondary border border-card-border text-foreground py-3.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-3 mb-4 shadow-lg"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">

@@ -105,7 +105,9 @@ const syncStreakInternal = async (userId: string) => {
     return {
         streak: streakDoc.streakCount,
         streakUpdated,
-        lastCompletedDate: streakDoc.lastCompletedDate
+        lastCompletedDate: streakDoc.lastCompletedDate,
+        streakHistory: streakDoc.history || [],
+        lastCompletedDateIST: streakDoc.lastCompletedDateIST
     };
 };
 
@@ -147,6 +149,7 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
     res.status(201).json({
         ...habit.toObject(),
         streak: streakInfo.streak,
+        streakHistory: streakInfo.streakHistory,
         lastCompletedDate: streakInfo.lastCompletedDate
     });
   } catch (error) {
@@ -201,6 +204,7 @@ export const updateHabit = async (req: any, res: Response): Promise<void> => {
         res.json({
             ...updatedHabit.toObject(),
             streak: streakInfo.streak,
+            streakHistory: streakInfo.streakHistory,
             streakUpdated: streakInfo.streakUpdated,
             lastCompletedDate: streakInfo.lastCompletedDate
         });
@@ -262,6 +266,7 @@ export const deleteHabit = async (req: any, res: Response): Promise<void> => {
         res.json({ 
             message: "Habit removed", 
             streak: streakInfo.streak,
+            streakHistory: streakInfo.streakHistory,
             lastCompletedDate: streakInfo.lastCompletedDate 
         });
 
