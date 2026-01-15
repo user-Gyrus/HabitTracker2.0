@@ -14,8 +14,8 @@ router.put("/profile", protect, updateUserProfile);
 // Google Auth
 router.get("/google", (req, res, next) => {
   const referer = req.get('referer');
-  // Default to localhost:5173 if no referer, but try to use the actual origin
-  const origin = referer ? new URL(referer).origin : "http://localhost:5173";
+  // Use CLIENT_URL from environment, fallback to referer, then localhost
+  const origin = referer ? new URL(referer).origin : (process.env.CLIENT_URL || "http://localhost:5173");
   const state = Buffer.from(JSON.stringify({ origin })).toString('base64');
   
   passport.authenticate("google", { 
@@ -61,7 +61,7 @@ router.get(
      const dateStr = lastCompletedDate ? lastCompletedDate.toISOString() : "";
      
      // Decode origin from state
-     let origin = "http://localhost:5173";
+     let origin = process.env.CLIENT_URL || "http://localhost:5173";
      if (req.query.state) {
         try {
            const decoded = JSON.parse(Buffer.from(req.query.state as string, 'base64').toString());
