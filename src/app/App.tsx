@@ -423,7 +423,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[var(--bg-gradient-start)] to-[var(--bg-gradient-end)] text-foreground overflow-x-hidden transition-colors duration-500">
-      <div className="max-w-md mx-auto min-h-screen flex flex-col relative">
+      <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-background md:shadow-2xl md:border-x md:border-card-border">
         <main className="flex-1 pb-20 overflow-y-auto">
           <AnimatePresence mode="wait">
             {currentScreen === "habits" && (
