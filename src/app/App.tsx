@@ -14,6 +14,7 @@ import { SocialScreen } from "./components/SocialScreen";
 import { BottomNav } from "./components/BottomNav";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { LoginScreen } from "./components/LoginScreen";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -484,6 +485,7 @@ function AppContent() {
         
 
       </div>
+      <PWAInstallPrompt />
       <Toaster />
     </div>
 
