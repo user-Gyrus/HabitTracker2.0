@@ -93,7 +93,8 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
 
       // 2. API Update (Backend)
       if (profile.token) {
-        const res = await fetch("http://localhost:5000/api/auth/profile", {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${apiUrl}/auth/profile`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
