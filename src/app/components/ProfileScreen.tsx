@@ -6,10 +6,15 @@ import {
   ChevronRight,
   Pencil,
   Check,
+  Copy,
+  X,
+  Share2,
+  MessageCircle,
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -39,6 +44,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   // Streak passed via props
   const [notificationsEnabled, setNotificationsEnabled] =
     useState<boolean>(true);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const { theme, setTheme } = useTheme();
   // Ensure hydration match
   // const [mounted, setMounted] = useState(false);
@@ -51,10 +57,38 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
     // 1. Load User Session
     const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
     if (storedSession) {
-      setProfile(JSON.parse(storedSession));
+      const parsedProfile = JSON.parse(storedSession);
+      setProfile(parsedProfile);
+      
+      // 2. If friendCode is missing, fetch from backend
+      if (!parsedProfile.friendCode && parsedProfile.token) {
+        const fetchFriendCode = async () => {
+          try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const res = await fetch(`${apiUrl}/auth/profile`, {
+              headers: {
+                Authorization: `Bearer ${parsedProfile.token}`,
+              },
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              const updatedProfile = {
+                ...parsedProfile,
+                friendCode: data.friendCode,
+              };
+              setProfile(updatedProfile);
+              localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(updatedProfile));
+            }
+          } catch (error) {
+            console.error('Failed to fetch friend code:', error);
+          }
+        };
+        fetchFriendCode();
+      }
     }
 
-    // 2. Mock streak removed, using prop
+    // 3. Mock streak removed, using prop
   }, []);
 
   /* ---------------------------
@@ -126,6 +160,60 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
     } catch (error) {
         console.error("Error updating profile:", error);
     }
+  };
+
+  const handleInviteFriend = () => {
+    setShowInviteModal(true);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+  };
+
+  const handleNativeShare = async () => {
+     if (!profile?.friendCode) return;
+     
+     // Exact text as requested
+     const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${profile.friendCode} to join my squad so we can keep our fire streak alive together.`;
+     const shareUrl = "https://atomiq.app";
+     const shareTitle = "Join my Atomiq Squad";
+
+     const shareData = {
+        title: shareTitle,
+        text: shareText,
+        url: shareUrl,
+     };
+
+     try {
+       if (navigator.share) {
+         await navigator.share(shareData);
+       } else {
+         await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+         toast.success("Copied to Clipboard");
+       }
+     } catch (err) {
+       console.error("Error sharing:", err);
+       // Fallback for "AbortError" or other generic share failures
+       if ((err as any).name !== 'AbortError') {
+          try {
+             await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+             toast.success("Copied to Clipboard");
+          } catch (clipboardErr) {
+             toast.error("Failed to share or copy");
+          }
+       }
+     }
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!profile?.friendCode) return;
+    const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${profile.friendCode} to join my squad so we can keep our fire streak alive together.`;
+    const shareUrl = "https://atomiq.app";
+    const fullText = `${shareText} ${shareUrl}`;
+    const encodedText = encodeURIComponent(fullText);
+    
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
 
   if (!profile) return null;
@@ -258,7 +346,10 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
               </Switch.Root>
             </div>
 
-            <button className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left">
+            <button 
+              onClick={handleInviteFriend}
+              className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
                   <UserPlus size={20} className="text-green-500" />
@@ -294,6 +385,71 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
         <div className="text-center mt-8">
           <p className="text-xs text-muted-foreground">Accountability Board v1.1.0 (Themed)</p>
         </div>
+        {/* INVITE FRIEND MODAL */}
+        {showInviteModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center px-5">
+             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowInviteModal(false)} />
+             <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <button 
+                  onClick={() => setShowInviteModal(false)}
+                  className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={20} />
+                </button>
+                
+                <div className="text-center mb-6">
+                   <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
+                      <UserPlus size={32} className="text-green-500" />
+                   </div>
+                   <h3 className="text-xl font-bold text-foreground mb-2">Invite a Friend</h3>
+                   <p className="text-sm text-muted-foreground">Share your code and the link to grow your squad!</p>
+                </div>
+
+                {/* Friend Code */}
+                <div className="mb-4">
+                   <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 block">Your Friend Code</label>
+                   <div 
+                      onClick={() => copyToClipboard(profile.friendCode || "")}
+                      className="flex items-center justify-between bg-secondary/50 border border-border rounded-xl p-3 cursor-pointer hover:border-primary/50 transition-colors"
+                   >
+                      <span className="font-mono text-lg font-bold text-primary tracking-wider">{profile.friendCode || "..."}</span>
+                      <Copy size={18} className="text-muted-foreground" />
+                   </div>
+                </div>
+
+                {/* Website Link */}
+                 <div className="mb-6">
+                   <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 block">Website</label>
+                   <div 
+                      onClick={() => copyToClipboard("https://atomiq.club")}
+                      className="flex items-center justify-between bg-secondary/50 border border-border rounded-xl p-3 cursor-pointer hover:border-primary/50 transition-colors"
+                   >
+                      <span className="text-sm text-foreground truncate">atomiq.club</span>
+                      <Copy size={18} className="text-muted-foreground" />
+                   </div>
+                </div>
+
+
+                 {/* Share Buttons */}
+                 <div className="flex gap-3">
+                    <button
+                      onClick={handleNativeShare}
+                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <Share2 size={18} />
+                      Share Invite
+                    </button>
+                    <button
+                      onClick={handleWhatsAppShare}
+                      className="flex-1 bg-[#25D366] hover:bg-[#25D366]/90 text-white font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle size={18} />
+                      WhatsApp
+                    </button>
+                 </div>
+             </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -19,21 +19,23 @@ export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    const id = params.get("id");
-    const username = params.get("username");
     
-    if (token && id && username) {
-      onLogin({
-        id,
-        username,
-        display_name: params.get("displayName") || username,
-        email: "google-auth-user",
-        token,
-        friendCode: params.get("friendCode") || undefined,
-        streak: parseInt(params.get("streak") || "0", 10),
-        lastCompletedDate: params.get("lastCompletedDate") || null,
+    if (token) {
+      // Fetch full profile to ensure we have streakHistory and everything else
+      // We must explicitly pass the token since it's not in localStorage yet
+      api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => {
+         // Merge token back in (API usually returns user data, not token in /me)
+         const fullUser = { ...res.data, token };
+         onLogin(fullUser);
+         window.history.replaceState({}, document.title, "/");
+      })
+      .catch(err => {
+         console.error("Google Auth Fetch Error", err);
+         setError("Failed to load user profile");
       });
-      window.history.replaceState({}, document.title, "/");
     }
   }, [onLogin]);
 

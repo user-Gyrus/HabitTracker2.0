@@ -40,6 +40,8 @@ interface UIHabit {
   goal: number;
   completed_today: boolean;
   reminder_time?: string | null;
+  duration: number; // Added
+  completionsCount: number; // Added
 }
 
 const STORAGE_KEY_HABITS = "habit-tracker-habits";
@@ -185,9 +187,11 @@ function AppContent() {
           id: h._id, // MongoDB uses _id
           name: h.name,
           micro_identity: h.microIdentity,
-          goal: h.goal,
+          goal: h.goal, // Kept for legacy (e.g. daily amount)
           completed_today: h.completions.includes(today),
           reminder_time: h.reminderTime, // Map reminderTime from backend
+          duration: h.duration || 21,
+          completionsCount: h.completions.length,
         }));
 
         setHabits(normalized);
@@ -362,7 +366,11 @@ function AppContent() {
     
     // Optimistic update
     setHabits(prev => 
-        prev.map(h => h.id === habitId ? { ...h, completed_today: true } : h)
+        prev.map(h => h.id === habitId ? { 
+          ...h, 
+          completed_today: true,
+          completionsCount: h.completionsCount + 1 
+        } : h)
     );
 
     try {

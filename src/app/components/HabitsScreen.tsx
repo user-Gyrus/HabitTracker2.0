@@ -1,6 +1,5 @@
-import { Flame, Menu, Plus, Check } from "lucide-react";
-import { motion } from "motion/react";
-import{ HabitCard } from "./HabitCard";
+import { Flame, Menu, Plus } from "lucide-react";
+import { HabitCard } from "./HabitCard";
 import { useMemo, useState } from "react";
 import { ProfileScreen } from "./ProfileScreen";
 
@@ -21,6 +20,8 @@ export interface Habit {
   micro_identity: string | null;
   goal: number;
   completed_today: boolean;
+  duration: number; // Added
+  completionsCount: number; // Added
 }
 
 interface Quote {
@@ -59,7 +60,6 @@ interface HabitsScreenProps {
   updateSession?: (updatedUser: any) => void;
   streak?: number;
   streakHistory?: string[]; // Added
-  lastCompletedDate?: string | Date | null;
 }
 
 export function HabitsScreen({
@@ -71,7 +71,6 @@ export function HabitsScreen({
   updateSession,
   streak = 0,
   streakHistory = [], // Added
-  lastCompletedDate,
 }: HabitsScreenProps) {
   // Select a random quote only once on mount
   const currentQuote = useMemo(() => {
@@ -80,12 +79,7 @@ export function HabitsScreen({
   }, []);
 
   const streakDays = streak;
-  const hasIncompleteHabits = habits.some((h) => !h.completed_today);
   const remainingCount = habits.filter((h) => !h.completed_today).length;
-
-  const today = new Date();
-  const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
-  const dateString = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
@@ -93,128 +87,123 @@ export function HabitsScreen({
   return (
     <div className="px-5 pt-6 pb-28">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Header */}
+      <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center justify-between mb-8 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-background" />
-          <div>
-            <p className="text-sm text-muted-foreground font-medium mb-0.5">Welcome back,</p>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-              {userName || 'Guest'} 
-              <span className="animate-pulse">👋</span>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight flex items-center gap-1.5">
+              <span className="truncate">Hi {userName || 'Guest'}</span>
+              <span className="animate-pulse flex-shrink-0">👋</span>
             </h1>
           </div>
         </div>
         <button
           onClick={() => setShowProfileModal(true)}
-          className="p-3 hover:bg-accent rounded-xl transition-all active:scale-95 border border-transparent hover:border-border"
+          className="p-2 hover:bg-secondary rounded-xl transition-all active:scale-95 border border-transparent"
         >
           <Menu size={24} className="text-muted-foreground" />
         </button>
       </div>
 
-      {/* ... (Date Display, Streak, Weekly Calendar, Habits, Add Habit unchanged) ... */}
+       {/* Weekly Calendar (Integrated into Streak Card logic or separate?) 
+           The user said: "For the 'This week' section". 
+           In the image, it looks like one large card with Streak on left, Calendar on right.
+           Let's Merge them into one container.
+       */}
 
-      {/* Date Display */}
-      <div className="mb-8">
-        <p className="text-primary text-md font-medium tracking-wide">
-          {dayName} ~ {dateString}
-        </p>
-      </div>
-
-      {/* Streak */}
-      <div className="bg-card-bg rounded-3xl border border-card-border p-6 mb-8 shadow-lg shadow-black/5 flex flex-col items-center">
-        <motion.div
-          className="mb-4"
-          animate={
-            hasIncompleteHabits
-              ? { scale: [1, 1.05, 1] }
-              : { scale: 1 }
-          }
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <Flame size={64} className="text-primary" fill="currentColor" />
-        </motion.div>
-        <h1 className="text-3xl font-bold mb-2 text-foreground">{streakDays} Day Streak</h1>
-        <p className="text-muted-foreground">Keep the fire burning!</p>
-      </div>
-
-      {/* Weekly Calendar */}
-      <div className="bg-card-bg rounded-3xl border border-card-border p-5 mb-8 shadow-lg shadow-black/5">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 ml-1">This Week</h3>
-        <div className="flex justify-between items-center">
-          {(() => {
-            const current = new Date();
-            const currentDay = current.getDay(); // 0-6
-            const startOfWeek = new Date(current);
-            startOfWeek.setDate(current.getDate() - currentDay); // Assuming Sunday start
-
-            // Calculate which days should have checkmarks based on streak history
-            const completedDates = new Set<string>();
+      {/* Merged Streak & Calendar Card */}
+      <div className="bg-card-bg rounded-[2rem] border border-card-border p-4 sm:p-6 mb-8 shadow-sm relative overflow-hidden">
+        <div className="flex items-center justify-between gap-4">
             
-            // Use streakHistory if available (it contains YYYY-MM-DD strings)
-            if (streakHistory && streakHistory.length > 0) {
-                streakHistory.forEach(dateStr => completedDates.add(dateStr));
-            } else if (streak > 0 && lastCompletedDate) {
-                 // Fallback for backward compatibility or if history is empty but streak exists
-              // Convert UTC timestamp to local date
-              const lastCompletedUTC = new Date(lastCompletedDate);
-              const lastCompletedLocal = new Date(
-                lastCompletedUTC.getFullYear(),
-                lastCompletedUTC.getMonth(),
-                lastCompletedUTC.getDate()
-              );
-              
-              // Add dates going back from lastCompletedDate (in local timezone)
-              for (let i = 0; i < streak; i++) {
-                const completedDay = new Date(lastCompletedLocal);
-                completedDay.setDate(lastCompletedLocal.getDate() - i);
-                // Format as YYYY-MM-DD in local timezone
-                const year = completedDay.getFullYear();
-                const month = String(completedDay.getMonth() + 1).padStart(2, '0');
-                const day = String(completedDay.getDate()).padStart(2, '0');
-                const dateStr = `${year}-${month}-${day}`;
-                completedDates.add(dateStr);
-              }
-            }
-
-            return Array.from({ length: 7 }).map((_, i) => {
-              const date = new Date(startOfWeek);
-              date.setDate(startOfWeek.getDate() + i);
-              const isToday = date.getDate() === current.getDate() && 
-                            date.getMonth() === current.getMonth();
-              const dateNum = date.getDate();
-              const dayInitial = date.toLocaleDateString('en-US', { weekday: 'narrow' });
-              
-              // Check if this day is in the completed dates set (using local date)
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-              const dateStr = `${year}-${month}-${day}`;
-              const isCompleted = completedDates.has(dateStr);
-              
-              return (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <span className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {dayInitial}
-                  </span>
-                  <div 
-                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-all relative
-                      ${isToday 
-                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/40' 
-                        : 'bg-accent/50 text-muted-foreground border border-border'
-                      }`}
-                  >
-                    {dateNum}
-                    {isCompleted && (
-                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-md border border-background">
-                        <Check size={10} className="text-white" strokeWidth={3} />
-                      </div>
-                    )}
-                  </div>
+            {/* Left: Streak */}
+            <div className="flex flex-col items-center justify-center gap-1 pr-4 border-r border-border/50 min-w-[80px]">
+                <div className="flex items-center gap-1">
+                    <span className="text-4xl sm:text-5xl font-bold text-foreground leading-none">{streakDays}</span>
+                    <Flame size={24} className="text-primary" fill="currentColor" />
                 </div>
-              );
-            });
-          })()}
+                <span className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">
+                    Streak
+                </span>
+            </div>
+
+            {/* Right: Calendar */}
+            <div className="flex-1 w-full flex justify-between items-center gap-1 overflow-x-auto no-scrollbar">
+            {(() => {
+                const current = new Date();
+                const currentDay = current.getDay(); 
+                const daysToSubtract = currentDay === 0 ? 6 : currentDay - 1; 
+                const startOfWeek = new Date(current);
+                startOfWeek.setDate(current.getDate() - daysToSubtract);
+
+                const completedDates = new Set<string>();
+                if (streakHistory && streakHistory.length > 0) {
+                    streakHistory.forEach(dateStr => completedDates.add(dateStr));
+                }
+
+                return Array.from({ length: 7 }).map((_, i) => {
+                    const date = new Date(startOfWeek);
+                    date.setDate(startOfWeek.getDate() + i);
+                    
+                    const isToday = date.getDate() === current.getDate() && 
+                                    date.getMonth() === current.getMonth();
+                    
+                    const dayNum = date.getDate();
+                    const dayInitial = date.toLocaleDateString('en-US', { weekday: 'narrow' }); 
+                    
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
+                    
+                    // Logic for Green Checkmark (All Done)
+                    let isStreakDay = completedDates.has(dateStr);
+                    
+                    // Optimistic check for Today
+                    if (isToday) {
+                        const allDoneToday = habits.length > 0 && !habits.some(h => !h.completed_today);
+                        if (allDoneToday) {
+                            isStreakDay = true;
+                        }
+                    }
+
+                    return (
+                        <div key={i} className="flex flex-col items-center gap-2 min-w-[30px]">
+                             <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">
+                                {dayInitial}
+                             </span>
+                             
+                             <div className={`
+                                w-8 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all relative
+                                ${isToday 
+                                    ? 'bg-transparent border border-primary text-primary shadow-[0_0_10px_rgba(255,107,0,0.2)]' 
+                                    : 'text-muted-foreground/40'
+                                }
+                             `}>
+                                {dayNum}
+
+                                {/* Green Tickmark for All Done */}
+                                {isStreakDay && (
+                                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-card-bg flex items-center justify-center shadow-sm z-10">
+                                        <svg width="8" height="6" viewBox="0 0 8 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                     </div>
+                                )}
+
+                                {/* Fallback Dot (Only if NOT streak day but Today? Or just keep simple?) 
+                                    User only asked for Green Tick. 
+                                    If it's Today and NOT done, show active dot?
+                                */}
+                                {isToday && !isStreakDay && (
+                                     <div className="absolute mb-[-20px] w-1.5 h-1.5 bg-primary rounded-full" />
+                                )}
+                             </div>
+                        </div>
+                    );
+                });
+            })()}
+            </div>
         </div>
       </div>
 
@@ -248,8 +237,8 @@ export function HabitsScreen({
                 id: habit.id,
                 name: habit.name,
                 microIdentity: habit.micro_identity ?? "",
-                progress: habit.completed_today ? 1 : 0,
-                goal: habit.goal,
+                progress: habit.completionsCount, // Now using completions count
+                goal: habit.duration, // Now using duration as the denominator
                 completed: habit.completed_today,
               }}
               onComplete={() => onCompleteHabit(habit.id)}

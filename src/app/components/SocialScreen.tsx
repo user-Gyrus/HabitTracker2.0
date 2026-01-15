@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus, Flame, Share2, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import { toast } from "sonner";
@@ -61,7 +61,7 @@ interface Group {
 
 
 
-export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScreenProps) {
+export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
@@ -204,10 +204,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
     fetchGroups();
   }, [showCreateSquad, showLinkHabitModal]); // Refresh when modal closes (after link)
 
-  // Calculate Progress
-  const completedCount = habits.filter(h => h.completed_today).length;
-  const totalCount = habits.length;
-  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
 
   // Filter friends who completed all habits today
   const dailyGoalFriends = friends.filter(f => f.completedToday);
@@ -261,6 +258,56 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
   const currentUserMember = selectedGroup?.members.find(m => m._id === userProfile?.id);
   const isLinked = !!currentUserMember?.linkedHabit;
 
+  const handleNativeShare = async () => {
+    if (!userProfile?.friendCode) return;
+    
+    // Exact text as requested
+    const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${userProfile.friendCode} to join my squad so we can keep our fire streak alive together.`;
+    const shareUrl = "https://atomiq.app";
+    const shareTitle = "Join my Atomiq Squad";
+
+    const shareData = {
+      title: shareTitle,
+      text: shareText,
+      url: shareUrl
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+        toast.success("Copied to Clipboard");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+       // Fallback for "AbortError" or other generic share failures if share was attempted but failed/cancelled
+       // Logic: If user cancelled, do nothing. If not supported (caught earlier usually), copy.
+       // For simple fallback if share throws (e.g. permission denied or internal error), we can try copy.
+       // But usually AbortError means user hit cancel.
+       if ((err as any).name !== 'AbortError') {
+          try {
+             await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+             toast.success("Copied to Clipboard");
+          } catch (clipboardErr) {
+             toast.error("Failed to share or copy");
+          }
+       }
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!userProfile?.friendCode) return;
+    const shareText = `I just started my 66-day transformation on Atomiq! Use my code ${userProfile.friendCode} to join my squad so we can keep our fire streak alive together.`;
+    const shareUrl = "https://atomiq.app";
+    // Construct text with newlines if needed, usually WhatsApp web handles space/newline encoding 
+    const fullText = `${shareText} ${shareUrl}`;
+    const encodedText = encodeURIComponent(fullText);
+    
+    // Using window.open for universal link
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+  };
+
   return (
     <>
       <div className="min-h-screen px-5 pt-6 pb-28">
@@ -276,59 +323,28 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
           </button>
         </div>
 
-        {/* User Profile Card */}
-        <div className="bg-card-bg rounded-2xl p-5 mb-4 border border-card-border shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-2 border-background shadow-md">
-                <span className="text-2xl">🧑</span>
-              </div>
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-background" />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-lg text-foreground">You</p>
-              <p className="text-xs text-muted-foreground font-mono">{userProfile?.friendCode || "HABIT-XXXXXX"}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Streak</p>
-              <p className="text-lg font-bold text-primary">{streak} 🔥</p>
-            </div>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div 
-                className="h-full bg-primary transition-all duration-500 ease-out" 
-                style={{ width: `${progressPercentage}%` }} 
-            />
-          </div>
-        </div>
+
 
         {/* Daily Goal */}
+        {/* Daily Goal (Redesigned) */}
         <div 
-          onClick={() => dailyGoalFriends.length > 0 && setShowDailyGoalModal(true)}
-          className={`bg-card-bg rounded-2xl p-5 mb-4 border border-card-border shadow-sm ${dailyGoalFriends.length > 0 ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+          onClick={() => setShowDailyGoalModal(true)}
+          className="bg-card-bg rounded-3xl p-3 px-5 mb-8 border border-card-border shadow-sm cursor-pointer hover:border-primary/50 transition-colors flex items-center justify-between active:scale-[0.98]"
         >
-          <p className="text-xs text-primary uppercase tracking-wider mb-2 font-semibold">
-            Daily Goal
-          </p>
-          <h2 className="text-lg font-bold mb-1 text-foreground">
-            {dailyGoalFriends.length} friend{dailyGoalFriends.length !== 1 ? 's' : ''} completed all habits today
-          </h2>
-          <p className="text-sm text-muted-foreground mb-3">
-            {dailyGoalFriends.length > 0 ? 'Tap to see who crushed it!' : 'Check back later!'}
-          </p>
-          <div className="flex gap-2">
-            {dailyGoalFriends.map((friend) => (
-              <div
-                key={friend.id}
-                className="relative w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-lg border-2 border-background shadow-sm"
-              >
-                {friend.emoji} {/* Using friend's emoji instead of avatar */}
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-background">
-                  <Check size={12} className="text-white" strokeWidth={3} />
+            <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center">
+                    <Flame className="text-primary fill-primary" size={20} />
                 </div>
-              </div>
-            ))}
-          </div>
+                <div className="flex flex-col">
+                    <span className="font-bold text-sm sm:text-base text-foreground tracking-wide uppercase leading-tight">
+                        {dailyGoalFriends.length} friends completed today
+                    </span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                        Tap to see who all crushed it!
+                    </span>
+                </div>
+            </div>
+            <div className="w-2 h-2 rounded-full bg-orange-500/80 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
         </div>
 
         {/* Group Shared Streak - Swipeable Carousel */}
@@ -470,13 +486,13 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                       <MoreVertical size={18} className="text-muted-foreground" />
                     </button>
                     {activeMenuId === friend.id && (
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-card-bg border border-card-border rounded-xl shadow-xl z-20 overflow-hidden">
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-secondary border border-border rounded-xl shadow-2xl z-20 overflow-hidden ring-1 ring-black/5">
                           <button
                               onClick={() => {
                                   setFriendToRemove(friend);
                                   setActiveMenuId(null);
                               }}
-                              className="w-full text-left px-4 py-3 text-red-500 hover:bg-secondary text-sm font-semibold transition-colors flex items-center gap-2"
+                              className="w-full text-left px-4 py-3 text-red-500 hover:bg-card-bg/50 text-sm font-semibold transition-colors flex items-center gap-2"
                           >
                               <X size={16} />
                               Remove Friend
@@ -858,7 +874,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
              </div>
  
              {/* Group Menu Overlay */}
-            {showGroupMenu && (
+            {showGroupMenu && selectedGroup && (
               <div 
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-3xl flex items-start justify-center pt-20 z-10"
                 onClick={() => setShowGroupMenu(false)}
@@ -887,6 +903,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                   {selectedGroup.creator === userProfile?.id ? (
                       <button 
                         onClick={() => {
+                             if (!selectedGroup) return;
                              setConfirmation({
                                  open: true,
                                  title: "Delete Squad",
@@ -894,13 +911,19 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                                  actionLabel: "Delete Squad",
                                  variant: "destructive",
                                  onConfirm: async () => {
+                                    const groupId = selectedGroup._id;
                                     try {
-                                        await api.delete(`/groups/${selectedGroup._id}`);
+                                        await api.delete(`/groups/${groupId}`);
                                         toast.success("Squad deleted successfully");
-                                        setGroups(groups.filter(g => g._id !== selectedGroup._id));
+                                        
+                                        // Close UI first to prevent render crashes on null selectedGroup
                                         setShowGroupMenu(false);
                                         setShowGroupDetails(false);
+                                        setSelectedGroup(null);
+
+                                        setGroups(prev => prev.filter(g => g._id !== groupId));
                                     } catch (err: any) {
+                                        console.error("Delete squad error:", err);
                                         toast.error(err.response?.data?.message || "Failed to delete squad");
                                     }
                                  }
@@ -914,6 +937,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                   ) : (
                       <button 
                          onClick={() => {
+                             if (!selectedGroup) return;
                              setConfirmation({
                                  open: true,
                                  title: "Leave Squad",
@@ -921,13 +945,19 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                                  actionLabel: "Leave Squad",
                                  variant: "destructive",
                                  onConfirm: async () => {
+                                    const groupId = selectedGroup._id;
                                     try {
-                                        await api.post("/groups/leave", { groupId: selectedGroup._id });
+                                        await api.post("/groups/leave", { groupId: groupId });
                                         toast.success("Left squad successfully");
-                                        setGroups(groups.filter(g => g._id !== selectedGroup._id));
+                                        
+                                        // Close UI first to prevent render crashes on null selectedGroup
                                         setShowGroupMenu(false);
                                         setShowGroupDetails(false);
+                                        setSelectedGroup(null);
+
+                                        setGroups(prev => prev.filter(g => g._id !== groupId));
                                     } catch (err: any) {
+                                        console.error("Leave squad error:", err);
                                         toast.error(err.response?.data?.message || "Failed to leave squad");
                                     }
                                  }
@@ -1139,6 +1169,7 @@ export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScre
                 <h1 className="text-xl font-semibold text-foreground">Invite to {selectedGroup.name}</h1>
                 <div className="w-10" />
               </div>
+
 
                {/* Friends Selection Logic (Reused) */}
               <div className="mb-6">

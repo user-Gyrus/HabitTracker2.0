@@ -13,7 +13,7 @@
   --popover: #ffffff;
   --popover-foreground: #1a1410;
   
-  --primary: #ff5722; /* Habit Orange */
+  --primary: #FF6B00; /* Vibrant Orange */
   --primary-foreground: #ffffff;
   
   --secondary: #e5e0dc; /* Light beige for secondary actions */
@@ -55,52 +55,52 @@
 }
 
 .dark {
-  /* DARK THEME (Existing App Look) */
-  --background: #1a1410;
-  --foreground: #ffffff;
+  /* DARK THEME (Coffee/Chocolate Palette) */
+  --background: #32251F; /* Medium Coffee Brown - matches reference background */
+  --foreground: #F5E6D3; /* Creamy Warm White */
   
-  --card: #2a1f19;
-  --card-foreground: #ffffff;
+  --card: #1F1612; /* Darker Espresso Brown for cards */
+  --card-foreground: #F5E6D3;
   
-  --popover: #2a1f19;
-  --popover-foreground: #ffffff;
+  --popover: #1F1612;
+  --popover-foreground: #F5E6D3;
   
-  --primary: #ff5722;
-  --primary-foreground: #ffffff;
+  --primary: #FF6B00; /* Vibrant Orange */
+  --primary-foreground: #FFFFFF;
   
-  --secondary: #3d2f26;
-  --secondary-foreground: #ffffff;
+  --secondary: #423229; /* Slightly lighter brown for interactions */
+  --secondary-foreground: #F5E6D3;
   
-  --muted: #2a1f19;
-  --muted-foreground: #8a7a6e;
+  --muted: #1F1612;
+  --muted-foreground: #A89080; /* Light brown/grey text */
   
-  --accent: #3d2f26;
-  --accent-foreground: #ffffff;
+  --accent: #423229;
+  --accent-foreground: #F5E6D3;
   
   --destructive: #7f1d1d;
   --destructive-foreground: #ffffff;
   
-  --border: #3d2f26;
-  --input: #3d2817;
-  --ring: #ff6b3d;
+  --border: #423229; /* Lighter border to stand out slightly or blend */
+  --input: #1F1612;
+  --ring: #FF6B00;
 
   /* Custom Habit Tracker Semantic Vars */
-  --bg-gradient-start: #3d2817;
-  --bg-gradient-end: #1a1410;
+  --bg-gradient-start: #32251F;
+  --bg-gradient-end: #251A15; /* Subtle gradient for background */
   
-  --card-bg: #2a1f19;
-  --card-border: #3d2f26;
+  --card-bg: #1F1612;
+  --card-border: #2E211B; /* Subtle border */
   
-  --nav-bg: #1a1410;
-  --nav-border: #3d2f26;
-  --nav-item-active: #2a1f19;
+  --nav-bg: #1F1612;
+  --nav-border: #2E211B;
+  --nav-item-active: #2E211B;
 
   /* Legacy Aliases */
   --habit-orange: var(--primary);
   --card-brown: var(--card-bg);
   --card-brown-light: var(--card-border);
   --text-muted: var(--muted-foreground);
-  --text-secondary: #b5a79a;
+  --text-secondary: #A89080;
 }
 
 @theme inline {
