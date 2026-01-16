@@ -158,8 +158,6 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
       type,
       goal,
       days, 
-      reminderEnabled,
-      reminderTime,
       visibility,
       duration,
     } = req.body;
@@ -171,8 +169,6 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
       type,
       goal,
       activeDays: days,
-      reminderEnabled,
-      reminderTime,
       visibility,
       duration,
       completions: [],

@@ -1,6 +1,5 @@
-import { useState, useRef } from 'react';
-import { X, User, Clock, Globe, Lock, Minus, Plus, Info } from 'lucide-react';
-import * as Switch from '@radix-ui/react-switch';
+import { useState } from 'react';
+import { X, User, Globe, Lock, Minus, Plus, Info } from 'lucide-react';
 
 interface CreateHabitScreenProps {
   onBack: () => void;
@@ -12,12 +11,9 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   const [microIdentity, setMicroIdentity] = useState('');
   const [habitName, setHabitName] = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
-  const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('09:00');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [duration, setDuration] = useState<number>(21);
   const [showInfo, setShowInfo] = useState(false);
-  const timeInputRef = useRef<HTMLInputElement>(null);
 
   const days = [
     { num: 1, label: 'M' },
@@ -43,8 +39,6 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       name: habitName,
       type: habitType,
       days: selectedDays,
-      reminderEnabled,
-      reminderTime,
       visibility,
       duration,
       progress: 0,
@@ -277,68 +271,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
                ))}
              </div>
            </div>
-        </div>
-
-        {/* Reminder */}
-        <div className="bg-card-bg border border-card-border rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${reminderEnabled ? 'bg-primary/20' : 'bg-secondary'}`}>
-                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path
-                    d="M10 6V10L12 12M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10Z"
-                    stroke={reminderEnabled ? "var(--primary)" : "var(--muted-foreground)"}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium mb-1 text-foreground">Reminder</p>
-                {reminderEnabled ? (
-                  <button 
-                    onClick={() => timeInputRef.current?.showPicker()}
-                    className="relative inline-flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 hover:bg-primary/20 transition-colors"
-                  >
-                    <Clock size={14} className="text-primary" />
-                    <span className="text-sm font-medium text-primary">
-                      {(() => {
-                        if (!reminderTime) return 'Set time';
-                        const [hours, minutes] = reminderTime.split(':');
-                        const h = parseInt(hours, 10);
-                        const period = h >= 12 ? 'PM' : 'AM';
-                        const h12 = h % 12 || 12;
-                        return `${h12}:${minutes} ${period}`;
-                      })()}
-                    </span>
-                    <input 
-                        ref={timeInputRef}
-                        type="time" 
-                        value={reminderTime}
-                        onChange={(e) => setReminderTime(e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
-                    />
-                  </button>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Off</p>
-                )}
-              </div>
-            </div>
-            
-            <Switch.Root
-                checked={reminderEnabled}
-                onCheckedChange={setReminderEnabled}
-                className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${
-                  reminderEnabled ? 'bg-primary' : 'bg-secondary'
-                }`}
-              >
-                <Switch.Thumb className={`block w-4 h-4 bg-white rounded-full shadow transition-transform duration-100 will-change-transform ${
-                  reminderEnabled ? 'translate-x-[26px]' : 'translate-x-1'
-                }`} />
-            </Switch.Root>
-          </div>
-        </div>
+         </div>
 
         {/* Start Habit Button */}
         <button

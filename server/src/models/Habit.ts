@@ -7,8 +7,6 @@ export interface IHabit extends Document {
   type: 'build' | 'break';
   goal: number;
   activeDays: number[];
-  reminderEnabled: boolean;
-  reminderTime: string | null;
   visibility: 'public' | 'private';
   duration: number;
   // Progress/Streak tracking could be more complex, but starting simple
@@ -47,14 +45,6 @@ const HabitSchema = new Schema<IHabit>(
     activeDays: {
       type: [Number],
       default: [1, 2, 3, 4, 5, 6, 7], // Monday=1 ... Sunday=7
-    },
-    reminderEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    reminderTime: {
-      type: String, // HH:MM
-      default: null,
     },
     visibility: {
       type: String,

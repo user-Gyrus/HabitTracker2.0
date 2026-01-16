@@ -28,7 +28,6 @@ interface Habit {
   createdAt: string; // Corrected from created_at
   completions: string[]; // List of ISO date strings (YYYY-MM-DD)
   visibility?: 'public' | 'private';
-  reminderTime?: string | null; // Backend uses reminderTime (camelCase)
   duration: number; // Duration in days
 }
 
@@ -39,7 +38,6 @@ interface UIHabit {
   micro_identity: string | null;
   goal: number;
   completed_today: boolean;
-  reminder_time?: string | null;
   duration: number; // Added
   completionsCount: number; // Added
 }
@@ -189,7 +187,6 @@ function AppContent() {
           micro_identity: h.microIdentity,
           goal: h.goal, // Kept for legacy (e.g. daily amount)
           completed_today: h.completions.includes(today),
-          reminder_time: h.reminderTime, // Map reminderTime from backend
           duration: h.duration || 21,
           completionsCount: h.completions.length,
         }));
@@ -202,111 +199,6 @@ function AppContent() {
 
     loadHabits();
   }, [session, currentScreen]); // Reload when screen changes (e.g. back from create)
-
-  /* ---------------------------
-     HABIT REMINDER NOTIFICATIONS
-  ---------------------------- */
-  useEffect(() => {
-    // Request notification permission on mount
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
-    // Check reminders every minute
-    const checkReminders = () => {
-      if (!session || habits.length === 0) return;
-      
-      const now = new Date();
-      const currentHour = now.getHours(); // 0-23
-      const currentMinute = now.getMinutes();
-      // Use local date format for "today" comparison
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const today = `${year}-${month}-${day}`;
-
-
-      habits.forEach(habit => {
-        // Check if habit has a reminder set
-        if (habit.reminder_time && !habit.completed_today) {
-
-          // Parse 12-hour format (e.g., "12:46 AM" or "13:30")
-          const timeStr = habit.reminder_time.trim();
-          let reminderHour: number;
-          let reminderMinute: number;
-          
-          if (timeStr.includes('AM') || timeStr.includes('PM')) {
-            // 12-hour format
-            const isPM = timeStr.includes('PM');
-            const [time] = timeStr.split(' ');
-            const [hourStr, minuteStr] = time.split(':');
-            let hour = parseInt(hourStr);
-            const minute = parseInt(minuteStr);
-            
-            // Convert to 24-hour format
-            if (isPM && hour !== 12) {
-              hour += 12;
-            } else if (!isPM && hour === 12) {
-              hour = 0;
-            }
-            
-            reminderHour = hour;
-            reminderMinute = minute;
-          } else {
-            // Already in 24-hour format
-            const [hourStr, minuteStr] = timeStr.split(':');
-            reminderHour = parseInt(hourStr);
-            reminderMinute = parseInt(minuteStr);
-          }
-
-          
-          // Check if current time matches reminder time
-          if (currentHour === reminderHour && currentMinute === reminderMinute) {
-
-            // Check if we haven't already notified today (prevent multiple notifications)
-            const lastNotifiedKey = `lastNotified_${habit.id}`;
-            const lastNotified = localStorage.getItem(lastNotifiedKey);
-            
-
-            if (lastNotified !== today) {
-              // Show notification
-              if ('Notification' in window && Notification.permission === 'granted') {
-
-                try {
-                  const notification = new Notification('Time for your habit! 🔥', {
-                    body: `${habit.name} - Let's keep the streak going!`,
-                    icon: '/icon-192x192.png',
-                    badge: '/icon-192x192.png',
-                    tag: habit.id,
-                    requireInteraction: false,
-                    silent: false
-                  });
-
-                  // Mark as notified today
-                  localStorage.setItem(lastNotifiedKey, today);
-
-                } catch (error) {
-
-                }
-              } else {
-
-              }
-            } else {
-
-            }
-          }
-        }
-      });
-    };
-
-    // Check immediately
-    checkReminders();
-
-    // Then check every minute
-    const intervalId = setInterval(checkReminders, 60000); // 60000ms = 1 minute
-
-    return () => clearInterval(intervalId);
-  }, [habits, session]);
 
   /* ---------------------------
      RELOAD SESSION (for profile updates)
@@ -467,7 +359,6 @@ function AppContent() {
                     updateSession={updateSession}
                     streak={session?.streak || 0}
                     streakHistory={session?.streakHistory || []}
-                    lastCompletedDate={session?.lastCompletedDate}
                   />
               </motion.div>
             )}
