@@ -61,7 +61,12 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card-bg rounded-2xl p-4 flex items-center gap-4 border border-card-border shadow-sm group relative overflow-hidden"
+      onMouseDown={startHold}
+      onMouseUp={endHold}
+      onMouseLeave={endHold}
+      onTouchStart={startHold}
+      onTouchEnd={endHold}
+      className="bg-card-bg rounded-2xl p-4 flex items-center gap-4 border border-card-border shadow-sm group relative overflow-hidden select-none cursor-pointer"
     >
         {/* Global Progress Fill (Background) */}
         <motion.div 
@@ -119,30 +124,25 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
 
         {/* Middle: Info */}
         <div className="flex-1 min-w-0 flex flex-col justify-center relative z-10">
-            <h3 className="text-base font-bold text-foreground truncate leading-tight mb-1">
+            <h3 className="text-base font-bold text-foreground break-words leading-tight mb-1">
                 {habit.name}
             </h3>
-            <p className="text-[10px] font-bold text-primary tracking-wider uppercase">
+            <p className="text-[9px] font-bold text-primary tracking-wider uppercase break-all">
                 {habit.microIdentity || 'BUILDING HABIT'}
             </p>
         </div>
 
         {/* Right: Action Button */}
-        <div className="w-[100px] flex-shrink-0 relative z-10">
+        <div className="w-[80px] flex-shrink-0 relative z-10">
             {habit.completed ? (
-                 <div className="w-full h-10 rounded-full bg-secondary/50 border border-border flex items-center justify-center text-xs font-bold text-muted-foreground tracking-wide">
+                 <div className="w-full h-8 rounded-full bg-secondary/50 border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground tracking-wide">
                     DONE
                 </div>
             ) : (
                 <button
-                    onMouseDown={startHold}
-                    onMouseUp={endHold}
-                    onMouseLeave={endHold}
-                    onTouchStart={startHold}
-                    onTouchEnd={endHold}
-                    className="w-full h-10 rounded-full bg-card-bg border border-card-border relative overflow-hidden group/btn hover:border-primary/50 transition-colors"
+                    className="w-full h-8 rounded-full bg-card-bg border border-card-border relative overflow-hidden group/btn hover:border-primary/50 transition-colors"
                 >
-                    <span className="relative z-10 text-xs font-bold text-foreground tracking-wide group-hover/btn:text-primary transition-colors">
+                    <span className="relative z-10 text-[10px] font-bold text-foreground tracking-wide group-hover/btn:text-primary transition-colors">
                         HOLD
                     </span>
                 </button>

@@ -344,12 +344,12 @@ function AppContent() {
       <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-background md:shadow-2xl md:border-x md:border-card-border">
         {/* FIXED HEADER (Only on Habits Screen) */}
         {currentScreen === "habits" && (
-            <div className="fixed top-0 left-0 right-0 z-[100] max-w-md mx-auto px-5 pt-6 pb-2 bg-background/80 backdrop-blur-xl transition-all border-b border-white/5">
-                <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center justify-between shadow-sm">
+            <div className="fixed top-0 left-0 right-0 z-[100] max-w-md mx-auto">
+                <div className="bg-nav-bg/95 backdrop-blur-xl transition-all border-b border-nav-border py-4 px-6 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-background" />
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-md border-2 border-background" />
                         <div className="flex-1 min-w-0">
-                            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight flex items-center gap-1.5">
+                            <h1 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-1.5">
                                 <span className="truncate">Hi {session?.display_name || session?.username || 'Guest'}</span>
                                 <span className="animate-pulse flex-shrink-0">👋</span>
                             </h1>
@@ -365,8 +365,8 @@ function AppContent() {
             </div>
         )}
 
-        <main className={`flex-1 pb-20 overflow-y-auto ${currentScreen === 'habits' ? 'pt-36' : ''}`}> 
-        {/* Added pt-36 to main when habits screen is active to compensate for fixed header and add gap */}
+        <main className={`flex-1 pb-20 overflow-y-auto ${currentScreen === 'habits' ? 'pt-24' : ''}`}> 
+        {/* Changed from pt-36 to pt-24 to reduce gap below fixed header */}
           <AnimatePresence mode="wait">
             {currentScreen === "habits" && (
               <motion.div
