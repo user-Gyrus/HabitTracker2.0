@@ -4,6 +4,7 @@ import User from "../models/User";
 import Group from "../models/Group";
 import Streak from "../models/Streak"; // New Streak model
 import { getISTDate, getYesterdayISTDate } from "../utils/dateUtils";
+import { calculateCurrentStreak } from "../utils/streakUtils";
 
 // --- Centralized Streak Sync Logic ---
 // This function is the single source of truth for streak updates.
@@ -71,70 +72,51 @@ const syncStreakInternal = async (userId: string) => {
 
     const lastDateIST = streakDoc.lastCompletedDateIST;
     let streakUpdated = false;
+    let historyChanged = false;
 
+    // 4. Update History Based on Completion Status
     if (allComplete) {
-         // Scenario: User has completed everything for today.
-         // Action: Ensure streak is incremented for today.
-         
-         if (lastDateIST !== todayIST) {
-             const yesterdayIST = getYesterdayISTDate(todayIST);
+         // Add today to history if not present
+         if (!streakDoc.history.includes(todayIST)) {
+             streakDoc.history.push(todayIST);
+             historyChanged = true;
              
-             if (lastDateIST === yesterdayIST) {
-                 // Consecutive: Increment
-                 streakDoc.streakCount += 1;
-             } else {
-                 // Gap or First Time: Reset/Set to 1
-                 streakDoc.streakCount = 1;
-             }
-             
-             streakDoc.lastCompletedDate = new Date(); // Timestamp
+             // Update timestamp variables
+             streakDoc.lastCompletedDate = new Date();
              streakDoc.lastCompletedDateIST = todayIST;
-             
-             // Add to history if not exists
-             if (!streakDoc.history.includes(todayIST)) {
-                 streakDoc.history.push(todayIST);
-             }
-             
-             await streakDoc.save();
-             streakUpdated = true;
          }
     } else {
-         // Scenario: User has NOT completed everything for today.
-         // Action: Ensure streak is NOT credited for today. 
-         
-         if (streakDoc.lastCompletedDateIST === todayIST) {
-             // Revert logic
+         // Remove today from history if present (e.g. user unticked a habit, or added a new one that isn't done)
+         const index = streakDoc.history.indexOf(todayIST);
+         if (index > -1) {
+             streakDoc.history.splice(index, 1);
+             historyChanged = true;
              
-             // 1. Remove today from history
-             const index = streakDoc.history.indexOf(todayIST);
-             if (index > -1) {
-                 streakDoc.history.splice(index, 1);
-             }
-             
-             // 2. Find previous completed date from history
-             const newLastDate = streakDoc.history.length > 0 
-                 ? streakDoc.history[streakDoc.history.length - 1] 
-                 : undefined;
+             // Revert timestamp variables if we just removed "today"
+             // Ideally we find the new last completed date
+             const newLastDate = streakDoc.history.length > 0
+                 ? streakDoc.history[streakDoc.history.length - 1]
+                 : null; // or undefined
                  
              streakDoc.lastCompletedDateIST = newLastDate;
-             
-             // 3. Revert timestamp
-             if (!newLastDate) {
-                 streakDoc.lastCompletedDate = null as any;
-             } else {
-                 const yesterday = new Date();
-                 yesterday.setDate(yesterday.getDate() - 1);
-                 streakDoc.lastCompletedDate = yesterday;
-             }
-
-             // 4. Revert count
-             if (streakDoc.streakCount > 0) {
-                 streakDoc.streakCount -= 1;
-             }
-             
-             await streakDoc.save();
-             streakUpdated = true;
+             // We can't easily revert the exact ISODate for lastCompletedDate but that's less critical for logic
+             // Let's just leave it or set to null if no history
+             if (!newLastDate) streakDoc.lastCompletedDate = null;
          }
+    }
+
+    // 5. Recalculate Streak from History (State Correction)
+    // Only save if history changed OR if we suspect the count might be wrong (safety)
+    // Actually, let's always recalculate to ensure correctness
+    const currentStreak = calculateCurrentStreak(streakDoc.history);
+    
+    if (streakDoc.streakCount !== currentStreak) {
+        streakDoc.streakCount = currentStreak;
+        streakUpdated = true;
+    }
+
+    if (streakUpdated || historyChanged) {
+        await streakDoc.save();
     }
     
     return {

@@ -3,6 +3,7 @@ import User from "../models/User";
 import generateToken from "../utils/generateToken";
 import { generateFriendCode } from "../utils/generateFriendCode";
 import Streak from "../models/Streak"; // New Streak model
+import { calculateCurrentStreak } from "../utils/streakUtils";
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -26,6 +27,14 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
             streakCount: 0,
             history: []
         });
+    }
+
+    // Recalculate streak to ensure consistency (e.g. if user missed yesterday)
+    const calculatedStreak = calculateCurrentStreak(streakDoc.history);
+    // If mismatch, update DB (Self-healing)
+    if (streakDoc.streakCount !== calculatedStreak) {
+        streakDoc.streakCount = calculatedStreak;
+        await streakDoc.save();
     }
 
     res.json({
@@ -88,6 +97,42 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// @desc    Get user profile
+// @route   GET /api/auth/profile
+// @access  Private
+export const getUserProfile = async (req: any, res: Response): Promise<void> => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    // Fetch Streak Data
+    let streakDoc = await Streak.findOne({ user: user._id });
+    
+    // Recalculate streak to ensure consistenc
+    let currentStreak = 0;
+    if (streakDoc) {
+         currentStreak = calculateCurrentStreak(streakDoc.history);
+         // Auto-repair if needed
+         if (streakDoc.streakCount !== currentStreak) {
+             streakDoc.streakCount = currentStreak;
+             await streakDoc.save();
+         }
+    }
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      displayName: user.displayName,
+      friendCode: user.friendCode,
+      email: user.email,
+      streak: currentStreak,
+      lastCompletedDate: streakDoc ? streakDoc.lastCompletedDate : null,
+      friend_code: user.friendCode // For safety/compatibility
+    });
+  } else {
+    res.status(404).json({ message: "User not found" });
+  }
+};
+
 // @desc    Update user profile
 // @route   PUT /api/auth/profile
 // @access  Private
@@ -114,8 +159,19 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
     
     // Fetch latest streak
     let streakDoc = await Streak.findOne({ user: updatedUser._id });
-    // Should exist, but handle safety
-    const currentStreak = streakDoc ? streakDoc.streakCount : 0;
+    
+    // Recalculate streak
+    let currentStreak = 0;
+    if (streakDoc) {
+        currentStreak = calculateCurrentStreak(streakDoc.history);
+        if (streakDoc.streakCount !== currentStreak) {
+            streakDoc.streakCount = currentStreak;
+            await streakDoc.save();
+        }
+    } else {
+        // Should not happen, but safe fallback
+        currentStreak = 0;
+    }
 
     res.json({
       _id: updatedUser._id,

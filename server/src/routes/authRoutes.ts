@@ -26,6 +26,7 @@ router.get("/google", (req, res, next) => {
 });
 
 import Streak from "../models/Streak"; // Ensure this import exists at top
+import { calculateCurrentStreak } from "../utils/streakUtils";
 
 router.get(
   "/google/callback",
@@ -53,6 +54,21 @@ router.get(
         }
     } catch (err) {
         console.error("Error fetching streak in google callback", err);
+    }
+    
+    // Recalculate streak if we have a valid user
+    if (user) {
+        try {
+             const streakDoc = await Streak.findOne({ user: user._id });
+             if (streakDoc) {
+                 const calculatedStreak = calculateCurrentStreak(streakDoc.history);
+                 if (streakDoc.streakCount !== calculatedStreak) {
+                     streakDoc.streakCount = calculatedStreak;
+                     await streakDoc.save();
+                 }
+                 streakCount = calculatedStreak;
+             }
+        } catch (e) { console.error(e); }
     }
 
      const token = require("../utils/generateToken").default(user._id.toString());
@@ -105,30 +121,24 @@ router.get("/me", protect, async (req: any, res) => {
         streakHistory = streakDoc.history || [];
 
         // --- VALIDATION: Check if streak is broken ---
-        // If last completed date IST is before yesterday (meaning we missed yesterday), streak should be 0.
-        // Unless streak is already 0.
+        // Use robust calculation utility
+        const calculatedStreak = calculateCurrentStreak(streakHistory);
         
-        if (streakCount > 0 && lastCompletedDateIST) {
-            const todayIST = getISTDate();
-            const yesterdayIST = getYesterdayISTDate(todayIST);
-            
-            // If last completed is NEITHER today NOR yesterday, it's broken.
-            // (e.g. 2 days ago)
-            if (lastCompletedDateIST !== todayIST && lastCompletedDateIST !== yesterdayIST) {
-                console.log(`[Streak Check] Resetting streak for user ${user.username}. Last: ${lastCompletedDateIST}, Today: ${todayIST}`);
-                streakDoc.streakCount = 0;
-                // We keep history! Just reset the counter.
-                await streakDoc.save();
-                streakCount = 0;
-            }
+        if (streakCount !== calculatedStreak) {
+            console.log(`[Streak Check] Correcting streak for user ${user.username}. Old: ${streakCount}, New: ${calculatedStreak}`);
+            streakDoc.streakCount = calculatedStreak;
+            await streakDoc.save();
+            streakCount = calculatedStreak;
         }
 
         res.json({
             _id: user._id,
             username: user.username,
-            display_name: user.displayName, // Normalize to snake_case for frontend
+            displayName: user.displayName, // Return both for compatibility or just camelCase
+            display_name: user.displayName, // Keep for ProfileScreen interface
             email: user.email,
-            friend_code: user.friendCode,
+            friendCode: user.friendCode, // FIX: Frontend expects friendCode
+            friend_code: user.friendCode, // Keep for safety
             streak: streakCount,
             streakHistory: streakHistory, // New field for calendar
             lastCompletedDate: lastCompletedDate

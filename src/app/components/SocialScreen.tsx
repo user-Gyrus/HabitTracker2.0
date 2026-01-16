@@ -178,11 +178,32 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
 
   // Load user profile
   useEffect(() => {
-    const storedSession = localStorage.getItem("habit-tracker-session");
-    if (storedSession) {
-      const profile = JSON.parse(storedSession);
-      setUserProfile(profile);
-    }
+    const loadProfile = async () => {
+        const storedSession = localStorage.getItem("habit-tracker-session");
+        if (storedSession) {
+          const profile = JSON.parse(storedSession);
+          setUserProfile(profile);
+
+          // Verify we have fresh data (specifically friendCode)
+          if (!profile.friendCode) {
+             try {
+                 const res = await api.get('/auth/me'); 
+                 const newProfile = { ...profile, ...res.data };
+                 
+                 // Ensure camelCase friendCode
+                 if (!newProfile.friendCode && newProfile.friend_code) {
+                     newProfile.friendCode = newProfile.friend_code;
+                 }
+
+                 setUserProfile(newProfile);
+                 localStorage.setItem("habit-tracker-session", JSON.stringify(newProfile));
+             } catch (err) {
+                 console.error("Failed to refresh profile in SocialScreen", err);
+             }
+          }
+        }
+    };
+    loadProfile();
   }, []);
   const [groups, setGroups] = useState<Group[]>([]);
 
@@ -1023,6 +1044,24 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                 {copied && <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-green-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow-lg">Copied!</span>}
               </button>
             </div>
+
+            {/* Share Buttons */}
+             <div className="flex gap-3 mb-6">
+                <button
+                  onClick={handleNativeShare}
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Share2 size={18} />
+                  Share Invite
+                </button>
+                <button
+                  onClick={handleWhatsAppShare}
+                  className="flex-1 bg-[#25D366] hover:bg-[#25D366]/90 text-white font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <MessageCircle size={18} />
+                  WhatsApp
+                </button>
+             </div>
 
             {/* Friend Code Input */}
             <div className="mb-6">
