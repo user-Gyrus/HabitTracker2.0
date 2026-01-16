@@ -4,46 +4,46 @@
   --font-size: 16px;
 
   /* LIGHT THEME (New Defaults) */
-  --background: #fdfbf9; /* Warm off-white */
+  --background: #EDE5DD; /* Warm peachy beige */
   --foreground: #1a1410; /* Dark brown text */
 
-  --card: #ffffff;
+  --card: #FAF6F2; /* Subtle peachy white */
   --card-foreground: #1a1410;
   
-  --popover: #ffffff;
+  --popover: #FAF6F2; /* Subtle peachy white */
   --popover-foreground: #1a1410;
   
   --primary: #FF6B00; /* Vibrant Orange */
   --primary-foreground: #ffffff;
   
-  --secondary: #e5e0dc; /* Light beige for secondary actions */
+  --secondary: #E8DED3; /* Peachy beige for secondary actions */
   --secondary-foreground: #1a1410;
   
-  --muted: #f0ebe8; /* Very Light beige */
+  --muted: #F5EDE5; /* Very light peachy */
   --muted-foreground: #8a7a6e; /* Muted brown */
   
-  --accent: #f5f0ec;
+  --accent: #F5EDE5;
   --accent-foreground: #1a1410;
   
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   
-  --border: #e6e1de;
-  --input: #e6e1de;
+  --border: #E0D5CA;
+  --input: #E0D5CA;
   --ring: #ff5722;
   
   --radius: 1rem;
 
   /* Custom Habit Tracker Semantic Vars */
-  --bg-gradient-start: #fdfbf9;
-  --bg-gradient-end: #f4f1ee;
+  --bg-gradient-start: #EDE5DD;
+  --bg-gradient-end: #E8DED3;
   
-  --card-bg: #ffffff;
-  --card-border: #e6e1de;
+  --card-bg: #f7eee8; /* Subtle peachy white */
+  --card-border: #E0D5CA;
   
-  --nav-bg: #ffffff;
-  --nav-border: #e6e1de;
-  --nav-item-active: #f5f0ec;
+  --nav-bg: #f7eee8; /* Subtle peachy white */
+  --nav-border: #E0D5CA;
+  --nav-item-active: #F5EDE5;
 
   /* Legacy Aliases (for backward compatibility) */
   --habit-orange: var(--primary);
@@ -56,13 +56,13 @@
 
 .dark {
   /* DARK THEME (Coffee/Chocolate Palette) */
-  --background: #32251F; /* Medium Coffee Brown - matches reference background */
+  --background: #1F1612; /* Darker Espresso Brown for background */
   --foreground: #F5E6D3; /* Creamy Warm White */
   
-  --card: #1F1612; /* Darker Espresso Brown for cards */
+  --card: #32251F; /* Medium Coffee Brown for cards */
   --card-foreground: #F5E6D3;
   
-  --popover: #1F1612;
+  --popover: #32251F;
   --popover-foreground: #F5E6D3;
   
   --primary: #FF6B00; /* Vibrant Orange */
@@ -71,7 +71,7 @@
   --secondary: #423229; /* Slightly lighter brown for interactions */
   --secondary-foreground: #F5E6D3;
   
-  --muted: #1F1612;
+  --muted: #32251F;
   --muted-foreground: #A89080; /* Light brown/grey text */
   
   --accent: #423229;
@@ -81,19 +81,19 @@
   --destructive-foreground: #ffffff;
   
   --border: #423229; /* Lighter border to stand out slightly or blend */
-  --input: #1F1612;
+  --input: #32251F;
   --ring: #FF6B00;
 
   /* Custom Habit Tracker Semantic Vars */
-  --bg-gradient-start: #32251F;
-  --bg-gradient-end: #251A15; /* Subtle gradient for background */
+  --bg-gradient-start: #1F1612;
+  --bg-gradient-end: #0F0A08; /* Subtle gradient for background */
   
-  --card-bg: #1F1612;
-  --card-border: #2E211B; /* Subtle border */
+  --card-bg: #32251F;
+  --card-border: #423229; /* Subtle border */
   
-  --nav-bg: #1F1612;
-  --nav-border: #2E211B;
-  --nav-item-active: #2E211B;
+  --nav-bg: #32251F;
+  --nav-border: #423229;
+  --nav-item-active: #423229;
 
   /* Legacy Aliases */
   --habit-orange: var(--primary);
@@ -152,6 +152,11 @@
   --color-card-brown-light: var(--card-brown-light);
   --color-text-muted: var(--text-muted);
   --color-text-secondary: var(--text-secondary);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-border: var(--nav-border);
+  --color-nav-item-active: var(--nav-item-active);
 }
 
 @layer base {

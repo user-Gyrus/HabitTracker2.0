@@ -341,7 +341,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[var(--bg-gradient-start)] to-[var(--bg-gradient-end)] text-foreground overflow-x-hidden transition-colors duration-500">
-      <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-background md:shadow-2xl md:border-x md:border-card-border">
+      <div className="max-w-md mx-auto min-h-screen flex flex-col relative md:shadow-2xl md:border-x md:border-card-border">
         {/* FIXED HEADER (Only on Habits Screen) */}
         {currentScreen === "habits" && (
             <div className="fixed top-0 left-0 right-0 z-[100] max-w-md mx-auto">
