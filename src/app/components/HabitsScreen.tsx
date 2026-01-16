@@ -1,7 +1,6 @@
-import { Flame, Menu, Plus } from "lucide-react";
+import { Flame, Plus } from "lucide-react";
 import { HabitCard } from "./HabitCard";
 import { useMemo, useState } from "react";
-import { ProfileScreen } from "./ProfileScreen";
 
 import {
   AlertDialog,
@@ -53,22 +52,18 @@ const MENTAL_MODELS: Quote[] = [
 
 interface HabitsScreenProps {
   habits: Habit[];
-  userName?: string; // Added
   onCompleteHabit: (id: string) => void;
   onDeleteHabit: (id: string) => void;
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
-  updateSession?: (updatedUser: any) => void;
   streak?: number;
   streakHistory?: string[]; // Added
 }
 
 export function HabitsScreen({
   habits,
-  userName,
   onCompleteHabit,
   onDeleteHabit,
   onNavigate,
-  updateSession,
   streak = 0,
   streakHistory = [], // Added
 }: HabitsScreenProps) {
@@ -81,30 +76,12 @@ export function HabitsScreen({
   const streakDays = streak;
   const remainingCount = habits.filter((h) => !h.completed_today).length;
 
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
 
   return (
-    <div className="px-5 pt-6 pb-28">
-      {/* Header */}
-      {/* Header */}
-      <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center justify-between mb-8 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-background" />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight flex items-center gap-1.5">
-              <span className="truncate">Hi {userName || 'Guest'}</span>
-              <span className="animate-pulse flex-shrink-0">👋</span>
-            </h1>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowProfileModal(true)}
-          className="p-2 hover:bg-secondary rounded-xl transition-all active:scale-95 border border-transparent"
-        >
-          <Menu size={24} className="text-muted-foreground" />
-        </button>
-      </div>
+    <div className="px-5 pb-28">
+      {/* Header moved to App.tsx */}
+
 
        {/* Weekly Calendar (Integrated into Streak Card logic or separate?) 
            The user said: "For the 'This week' section". 
@@ -277,17 +254,6 @@ export function HabitsScreen({
           </div>
         </div>
       </div>
-
-      {/* Profile Modal */}
-      {showProfileModal && (
-        <ProfileScreen 
-          onNavigate={onNavigate}
-          isModal={true}
-          onClose={() => setShowProfileModal(false)}
-          updateSession={updateSession}
-          streak={streak}
-        />
-      )}
     
     <AlertDialog open={!!habitToDelete} onOpenChange={(open) => !open && setHabitToDelete(null)}>
         <AlertDialogContent className="bg-background border border-border text-foreground rounded-2xl">

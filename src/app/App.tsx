@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { v4 as uuidv4 } from "uuid";
+
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
-import { Flame } from "lucide-react";
+import { Flame, Menu } from "lucide-react";
 import { AchievementProvider, useAchievement } from "./context/AchievementContext";
 import api from "../lib/api";
 
@@ -42,7 +42,7 @@ interface UIHabit {
   completionsCount: number; // Added
 }
 
-const STORAGE_KEY_HABITS = "habit-tracker-habits";
+
 const STORAGE_KEY_SESSION = "habit-tracker-session";
 
 export default function App() {
@@ -57,6 +57,7 @@ function AppContent() {
   const [session, setSession] = useState<any>(null);
   const { showAchievement } = useAchievement();
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [showProfileModal, setShowProfileModal] = useState(false); // New state for global modal
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
   const [habits, setHabits] = useState<UIHabit[]>([]);
@@ -341,7 +342,31 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[var(--bg-gradient-start)] to-[var(--bg-gradient-end)] text-foreground overflow-x-hidden transition-colors duration-500">
       <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-background md:shadow-2xl md:border-x md:border-card-border">
-        <main className="flex-1 pb-20 overflow-y-auto">
+        {/* FIXED HEADER (Only on Habits Screen) */}
+        {currentScreen === "habits" && (
+            <div className="fixed top-0 left-0 right-0 z-[100] max-w-md mx-auto px-5 pt-6 pb-2 bg-background/80 backdrop-blur-xl transition-all border-b border-white/5">
+                <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm border-2 border-background" />
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight flex items-center gap-1.5">
+                                <span className="truncate">Hi {session?.display_name || session?.username || 'Guest'}</span>
+                                <span className="animate-pulse flex-shrink-0">👋</span>
+                            </h1>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setShowProfileModal(prev => !prev)}
+                        className="p-2 hover:bg-secondary rounded-xl transition-all active:scale-95 border border-transparent"
+                    >
+                        <Menu size={24} className="text-muted-foreground" />
+                    </button>
+                </div>
+            </div>
+        )}
+
+        <main className={`flex-1 pb-20 overflow-y-auto ${currentScreen === 'habits' ? 'pt-36' : ''}`}> 
+        {/* Added pt-36 to main when habits screen is active to compensate for fixed header and add gap */}
           <AnimatePresence mode="wait">
             {currentScreen === "habits" && (
               <motion.div
@@ -352,11 +377,9 @@ function AppContent() {
               >
                   <HabitsScreen
                     habits={habits}
-                    userName={session?.display_name || session?.username}
                     onCompleteHabit={handleCompleteHabit}
                     onDeleteHabit={handleDeleteHabit}
                     onNavigate={setCurrentScreen}
-                    updateSession={updateSession}
                     streak={session?.streak || 0}
                     streakHistory={session?.streakHistory || []}
                   />
@@ -399,7 +422,16 @@ function AppContent() {
           onNavigate={setCurrentScreen}
         />
         
-
+        {/* Global Profile Modal */}
+        {showProfileModal && (
+            <ProfileScreen 
+                onNavigate={setCurrentScreen}
+                isModal={true}
+                onClose={() => setShowProfileModal(false)}
+                updateSession={updateSession}
+                streak={session?.streak || 0}
+            />
+        )}
       </div>
       <PWAInstallPrompt />
       <Toaster />

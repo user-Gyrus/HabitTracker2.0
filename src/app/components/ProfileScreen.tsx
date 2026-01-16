@@ -459,7 +459,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
   if (isModal) {
     return (
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center px-5"
+        className="fixed inset-0 z-50 flex items-start justify-center px-5 pt-36 pb-5"
         onClick={onClose}
       >
         {/* Backdrop with blur - lighter in light mode */}
