@@ -12,6 +12,13 @@ export interface IUser {
   streak: number;
   lastCompletedDate: Date | null;
   updatedAt: Date;
+  pushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
   matchPassword: (enteredPassword: string) => Promise<boolean>;
   checkStreak: () => Promise<void>;
 }
@@ -64,6 +71,13 @@ const UserSchema = new Schema<IUser>(
     lastCompletedDate: {
       type: Date,
       default: null,
+    },
+    pushSubscription: {
+      endpoint: { type: String },
+      keys: {
+        p256dh: { type: String },
+        auth: { type: String },
+      },
     },
   },
   { timestamps: true }

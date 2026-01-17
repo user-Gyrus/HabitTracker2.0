@@ -9,10 +9,6 @@ import "./styles/theme.css";
 import "./styles/index.css";
 import "sonner/dist/styles.css";
 
-
-
-
-
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {

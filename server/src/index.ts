@@ -27,11 +27,17 @@ import authRoutes from "./routes/authRoutes";
 import friendRoutes from "./routes/friendRoutes";
 import groupRoutes from "./routes/groupRoutes";
 import habitRoutes from "./routes/habitRoutes";
+import pushRoutes from "./routes/pushRoutes";
+import { initializeNotificationScheduler } from "./services/notificationScheduler";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/habits", habitRoutes);
+app.use("/api/push", pushRoutes);
+
+// Initialize push notification scheduler
+initializeNotificationScheduler();
 
 // Basic Route
 app.get("/", (req, res) => {

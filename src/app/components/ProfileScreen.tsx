@@ -15,6 +15,11 @@ import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { 
+  subscribeToPushNotifications, 
+  unsubscribeFromPushNotifications,
+  isSubscribedToPushNotifications 
+} from "../../lib/pushNotifications";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -27,7 +32,8 @@ interface ProfileScreenProps {
 }
 
 interface Profile {
-  id: string;
+  _id: string;
+  id?: string; // Keep for backwards compatibility
   display_name: string;
   username: string | null;
   email?: string;
@@ -43,7 +49,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   const [editName, setEditName] = useState("");
   // Streak passed via props
   const [notificationsEnabled, setNotificationsEnabled] =
-    useState<boolean>(true);
+    useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const { theme, setTheme } = useTheme();
   // Ensure hydration match
@@ -59,6 +65,9 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
     if (storedSession) {
       const parsedProfile = JSON.parse(storedSession);
       setProfile(parsedProfile);
+      
+      // 2. Check push notification subscription status
+      checkNotificationStatus();
       
       // 2. If friendCode is missing, fetch from backend
       if (!parsedProfile.friendCode && parsedProfile.token) {
@@ -90,6 +99,65 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
 
     // 3. Mock streak removed, using prop
   }, []);
+
+  /* ---------------------------
+     PUSH NOTIFICATION HANDLERS
+  ---------------------------- */
+  const checkNotificationStatus = async () => {
+    try {
+      const isSubscribed = await isSubscribedToPushNotifications();
+      setNotificationsEnabled(isSubscribed);
+    } catch (error) {
+      console.error("Error checking notification status:", error);
+    }
+  };
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    console.log('🔍 Profile object:', profile);
+    console.log('🔍 Profile._id:', profile?._id);
+    console.log('🔍 Profile.id:', (profile as any)?.id);
+    
+    // Try both _id and id fields
+    const userId = profile?._id || (profile as any)?.id;
+    
+    if (!userId) {
+      console.error('❌ No user ID found in profile:', profile);
+      toast.error("User session not found");
+      return;
+    }
+
+    console.log('✅ Using user ID:', userId);
+
+    try {
+      if (enabled) {
+        // Subscribe to push notifications
+        const success = await subscribeToPushNotifications(userId);
+        if (success) {
+          setNotificationsEnabled(true);
+          toast.success("Push notifications enabled! 🔔", {
+            description: "You'll receive motivational reminders at 8 AM and 8 PM"
+          });
+        } else {
+          setNotificationsEnabled(false);
+          toast.error("Failed to enable notifications", {
+            description: "Please check your browser permissions"
+          });
+        }
+      } else {
+        // Unsubscribe from push notifications
+        const success = await unsubscribeFromPushNotifications(userId);
+        if (success) {
+          setNotificationsEnabled(false);
+          toast.success("Push notifications disabled");
+        } else {
+          toast.error("Failed to disable notifications");
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling notifications:", error);
+      toast.error("Something went wrong");
+    }
+  };
 
   /* ---------------------------
      LOGOUT
@@ -337,11 +405,14 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Bell size={20} className="text-primary" />
                 </div>
-                <span className="text-foreground font-medium">Push Notifications</span>
+                <div className="flex flex-col">
+                  <span className="text-foreground font-medium">Push Notifications</span>
+                  <span className="text-xs text-muted-foreground">Daily reminders at 8 AM & 8 PM</span>
+                </div>
               </div>
               <Switch.Root
                 checked={notificationsEnabled}
-                onCheckedChange={setNotificationsEnabled}
+                onCheckedChange={handleNotificationToggle}
                 className="w-11 h-6 bg-input rounded-full relative data-[state=checked]:bg-primary transition-colors duration-300 cursor-pointer"
               >
                 <Switch.Thumb className="block w-5 h-5 bg-white rounded-full transition-transform duration-300 translate-x-0.5 data-[state=checked]:translate-x-[22px] shadow-sm" />
