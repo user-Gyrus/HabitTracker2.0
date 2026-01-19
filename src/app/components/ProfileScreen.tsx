@@ -242,10 +242,9 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   const handleNativeShare = async () => {
      if (!profile?.friendCode) return;
      
-     // Exact text as requested
-     const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${profile.friendCode} to add me as your friend!`;
-     const shareUrl = "https://atomiq.club";
+     // New Share Text
+     const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends 🔥\nJoin me here: https://atomiq.club/invite/${profile.friendCode}\nOnce you sign up, we’ll be connected automatically.`;
+     const shareUrl = `https://atomiq.club/invite/${profile.friendCode}`;
      const shareTitle = "Join Atomiq with me";
 
      const shareData = {
@@ -258,7 +257,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
        if (navigator.share) {
          await navigator.share(shareData);
        } else {
-         await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+         await navigator.clipboard.writeText(shareText);
          toast.success("Copied to Clipboard");
        }
      } catch (err) {
@@ -266,7 +265,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
        // Fallback for "AbortError" or other generic share failures
        if ((err as any).name !== 'AbortError') {
           try {
-             await navigator.clipboard.writeText(`${shareTitle}\n\n${shareText}\n${shareUrl}`);
+             await navigator.clipboard.writeText(shareText);
              toast.success("Copied to Clipboard");
           } catch (clipboardErr) {
              toast.error("Failed to share or copy");
@@ -277,11 +276,8 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
 
   const handleWhatsAppShare = () => {
     if (!profile?.friendCode) return;
-    const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${profile.friendCode} to add me as your friend!`;
-    const shareUrl = "https://atomiq.club";
-    const fullText = `${shareText} ${shareUrl}`;
-    const encodedText = encodeURIComponent(fullText);
+    const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends 🔥\nJoin me here: https://atomiq.club/invite/${profile.friendCode}\nOnce you sign up, we’ll be connected automatically.`;
+    const encodedText = encodeURIComponent(shareText);
     
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };

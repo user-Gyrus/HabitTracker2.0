@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { motion } from 'motion/react';
-import { Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Trash2, Check, RotateCcw, Pencil } from 'lucide-react';
 
 interface Habit {
   id: string;
@@ -14,19 +14,22 @@ interface Habit {
 interface HabitCardProps {
   habit: Habit;
   onComplete: () => void;
+  onUndo: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }
 
-export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
+export function HabitCard({ habit, onComplete, onUndo, onEdit, onDelete }: HabitCardProps) {
   const [holdProgress, setHoldProgress] = useState(0);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startHold = () => {
-    if (habit.completed) return;
+    // OLD: if (habit.completed) return;
+    // NEW: Allow hold even if completed (to undo)
     
     let progress = 0;
-    // 600ms to complete
-    const duration = 600; 
+    // 1500ms to complete (increased from 600ms)
+    const duration = 1500; 
     const interval = 10;
     const step = 100 / (duration / interval);
     
@@ -36,7 +39,11 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
       
       if (progress >= 100) {
         clearInterval(progressTimerRef.current!);
-        onComplete();
+        if (habit.completed) {
+            onUndo();
+        } else {
+            onComplete();
+        }
         setHoldProgress(0);
       }
     }, interval);
@@ -60,24 +67,49 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ 
+          opacity: habit.completed ? 0.6 : 1, // Subtle opacity drop
+          y: 0,
+          scale: 1,
+          filter: habit.completed ? 'grayscale(100%)' : 'grayscale(0%)' // Full grayscale for modern "done" look
+      }}
+      whileTap={{ scale: 0.98 }} // Tactile feedback
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       onMouseDown={startHold}
       onMouseUp={endHold}
       onMouseLeave={endHold}
       onTouchStart={startHold}
       onTouchEnd={endHold}
-      className="bg-card-bg rounded-2xl p-4 flex items-center gap-4 border border-card-border shadow-sm group relative overflow-hidden select-none cursor-pointer"
+      className={`
+        bg-card-bg rounded-2xl p-4 flex items-center gap-4 border shadow-sm group relative overflow-hidden select-none cursor-pointer transition-colors
+        ${habit.completed ? 'border-card-border/50' : 'border-card-border'}
+      `}
     >
         {/* Global Progress Fill (Background) */}
+        {/* DIFFERENT COLORS FOR COMPLETE vs UNDO */}
         <motion.div 
-            className="absolute inset-0 bg-gradient-to-r from-primary/10 to-primary/20 z-0"
+            className={`absolute inset-0 z-0 ${habit.completed ? 'bg-red-500/20' : 'bg-primary/20'}`} 
             initial={{ width: "0%" }}
             animate={{ width: `${holdProgress}%` }}
             transition={{ duration: 0 }}
-        />
+        >
+             {/* Progress text for Undo state */}
+             {habit.completed && holdProgress > 10 && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                    <RotateCcw size={48} className="text-red-500" />
+                </div>
+             )}
+        </motion.div>
 
-        {/* Delete Button - Always Visible */}
-        <div className="absolute right-2 top-2 z-20">
+        {/* Actions: Edit & Delete */}
+        <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
+             <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-secondary/50 transition-colors"
+                title="Edit"
+             >
+                <Pencil size={14} />
+             </button>
              <button 
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 className="p-1.5 text-muted-foreground hover:text-red-500 rounded-lg hover:bg-secondary/50 transition-colors"
@@ -115,16 +147,25 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
                 />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-bold text-foreground">
-                    <span className="text-primary">{habit.progress || 0}</span>
-                    <span className="text-muted-foreground">/{habit.goal}</span>
-                </span>
+                {habit.completed ? (
+                   <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                   >
+                     <Check size={20} className="text-foreground font-bold" strokeWidth={3} />
+                   </motion.div>
+                ) : (
+                    <span className="text-xs font-bold text-foreground">
+                        <span className="text-primary">{habit.progress || 0}</span>
+                        <span className="text-muted-foreground">/{habit.goal}</span>
+                    </span>
+                )}
             </div>
         </div>
 
         {/* Middle: Info */}
         <div className="flex-1 min-w-0 flex flex-col justify-center relative z-10">
-            <h3 className="text-base font-bold text-foreground break-words leading-tight mb-1">
+            <h3 className={`text-base font-bold text-foreground break-words leading-tight mb-1 ${habit.completed ? 'line-through decoration-muted-foreground/50' : ''}`}>
                 {habit.name}
             </h3>
             <p className="text-[9px] font-bold text-primary tracking-wider uppercase break-all">
@@ -135,8 +176,8 @@ export function HabitCard({ habit, onComplete, onDelete }: HabitCardProps) {
         {/* Right: Action Button */}
         <div className="w-[80px] flex-shrink-0 relative z-10">
             {habit.completed ? (
-                 <div className="w-full h-8 rounded-full bg-secondary/50 border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground tracking-wide">
-                    DONE
+                 <div className="w-full h-8 rounded-full bg-transparent border-2 border-foreground/10 flex items-center justify-center gap-1 text-[10px] font-bold text-muted-foreground tracking-wide">
+                    <span>DONE</span>
                 </div>
             ) : (
                 <button

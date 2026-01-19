@@ -64,6 +64,58 @@ function AppContent() {
   const [habits, setHabits] = useState<UIHabit[]>([]);
 
   /* ---------------------------
+     INVITE CODE HANDLING
+  ---------------------------- */
+  // 1. Check URL for invite code on mount (save to storage)
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/invite\/([a-zA-Z0-9-]+)$/);
+    if (match && match[1]) {
+       const code = match[1];
+       console.log("🔗 Invite link detected:", code);
+       localStorage.setItem('pendingInviteCode', code);
+       // Clean URL so user doesn't see /invite/... forever
+       window.history.replaceState({}, document.title, "/");
+    }
+  }, []);
+
+  // 2. Process Pending Invite (if logged in)
+  const processPendingInvite = async (userToken: string) => {
+     const pendingCode = localStorage.getItem('pendingInviteCode');
+     if (!pendingCode) return;
+
+     console.log("🤝 Processing pending invite:", pendingCode);
+
+     try {
+        // A. Search for friend by code
+        const searchRes = await api.get(`/friends/search?code=${pendingCode}`, {
+            headers: { Authorization: `Bearer ${userToken}` }
+        });
+        const friendData = searchRes.data;
+
+        if (friendData && friendData._id) {
+            // B. Add Friend
+            await api.post('/friends/add', { friendId: friendData._id }, {
+                 headers: { Authorization: `Bearer ${userToken}` }
+            });
+            toast.success(`You are now connected with ${friendData.displayName || "your friend"}! 🤝`);
+            localStorage.removeItem('pendingInviteCode');
+        }
+     } catch (err: any) {
+        console.error("Failed to process invite:", err);
+        const msg = err.response?.data?.message || "Could not process invite link";
+        // Convert to toast error but don't block app flow
+        // Only show if it's not a "already friends" or "self add" redundant error? 
+        // Actually showing error is good feedback.
+        if (msg !== "User is already your friend") {
+             toast.error(msg);
+        } else {
+             localStorage.removeItem('pendingInviteCode'); // Clear it anyway if already friends
+        }
+     }
+  };
+
+  /* ---------------------------
      AUTH SESSION (LOCAL STORAGE)
   ---------------------------- */
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
@@ -83,6 +135,9 @@ function AppContent() {
               const newSession = { ...parsedSession, ...res.data };
               setSession(newSession);
               localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
+              
+              // Trigger invite check
+              processPendingInvite(parsedSession.token);
           })
           .catch(err => console.error("Session refresh failed", err));
       }
@@ -108,6 +163,11 @@ function AppContent() {
   const handleLogin = (user: any) => {
     setSession(user);
     localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+    
+    // Check for pending invite immediately after login
+    if (user.token) {
+        processPendingInvite(user.token);
+    }
   };
 
   const updateSession = (updatedUser: any) => {
@@ -220,11 +280,45 @@ function AppContent() {
 
 
   /* ---------------------------
-     CREATE HABIT
+     CREATE / UPDATE HABIT
   ---------------------------- */
-  const handleCreateHabit = async (habitData: any): Promise<void> => {
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+
+  const handleEditHabit = async (id: string) => {
+      // Find full habit data (including activeDays, etc) which might not be in UIHabit fully?
+      // actually UIHabit is missing activeDays, type, visibility.
+      // So fetch specific habit or find in full list if we kept it.
+      // We didn't keep full list in state, only UIHabit.
+      // Let's fetch it or store full habits.
+      // Better: Fetch single habit or just get all again.
+      // Since we don't have get-single-habit endpoint ready/verified, let's just GET /habits again and find it.
+      try {
+          const res = await api.get('/habits');
+          const all: Habit[] = res.data;
+          const found = all.find((h:any) => h._id === id);
+          if (found) {
+              setEditingHabit(found);
+              setCurrentScreen("create");
+          }
+      } catch (err) {
+          console.error(err);
+          toast.error("Could not load habit details");
+      }
+  };
+
+  const handleCreateOrUpdateHabit = async (habitData: any): Promise<void> => {
     try {
-      const res = await api.post('/habits', habitData);
+      let res;
+      if (editingHabit) {
+          // UPDATE
+           res = await api.put(`/habits/${editingHabit._id}`, habitData);
+           toast.success("Habit updated successfully!");
+      } else {
+          // CREATE
+           res = await api.post('/habits', habitData);
+           toast.success("Habit created successfully!");
+      }
+      
       const data = res.data;
       
       // Update session streak/lastCompletedDate if returned
@@ -237,11 +331,13 @@ function AppContent() {
           };
           updateSession(updatedSession);
       }
+      
+      setEditingHabit(null); // Clear edit mode
       setCurrentScreen("habits");
-      toast.success("Habit created successfully!");
+      
     } catch (err) {
-      toast.error("Error creating habit");
-      console.error("Error creating habit", err);
+      toast.error(editingHabit ? "Error updating habit" : "Error creating habit");
+      console.error("Error saving habit", err);
     }
   };
 
@@ -293,6 +389,56 @@ function AppContent() {
         console.error("Failed to complete habit", err);
         // Revert optimistic update?
         // For now, ignore.
+    }
+  };
+
+  /* ---------------------------
+     UNDO HABIT (TODAY)
+  ---------------------------- */
+  const handleUndoHabit = async (habitId: string): Promise<void> => {
+    // FIX: Use local date parts to avoid UTC shift problems (toISOString uses UTC)
+    // Same logic as complete
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+
+    // Optimistic update
+    setHabits(prev => 
+        prev.map(h => h.id === habitId ? { 
+          ...h, 
+          completed_today: false,
+          completionsCount: Math.max(0, h.completionsCount - 1) 
+        } : h)
+    );
+
+    try {
+        const allRes = await api.get('/habits');
+        const allHabits: Habit[] = allRes.data;
+        const targetHabit = allHabits.find((h:any) => h._id === habitId);
+        
+        if (targetHabit && targetHabit.completions.includes(today)) {
+             const updatedCompletions = targetHabit.completions.filter((d: string) => d !== today);
+             const updateRes = await api.put(`/habits/${habitId}`, { completions: updatedCompletions });
+             const data = updateRes.data;
+             
+             // Update session streak and lastCompletedDate if returned
+             if (data.streak !== undefined && session) {
+                 const updatedSession = {
+                   ...session,
+                   streak: data.streak,
+                   streakHistory: data.streakHistory,
+                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
+                 };
+                 updateSession(updatedSession);
+             }
+        }
+
+    } catch (err) {
+        console.error("Failed to undo habit", err);
+        // We could revert the optimistic update here if needed.
+        toast.error("Failed to undo habit");
     }
   };
 
@@ -379,6 +525,8 @@ function AppContent() {
                   <HabitsScreen
                     habits={habits}
                     onCompleteHabit={handleCompleteHabit}
+                    onUndoHabit={handleUndoHabit}
+                    onEditHabit={handleEditHabit}
                     onDeleteHabit={handleDeleteHabit}
                     onNavigate={setCurrentScreen}
                     streak={session?.streak || 0}
@@ -390,8 +538,12 @@ function AppContent() {
             {currentScreen === "create" && (
               <motion.div key="create">
                 <CreateHabitScreen
-                  onBack={() => setCurrentScreen("habits")}
-                  onCreate={handleCreateHabit}
+                  onBack={() => {
+                      setCurrentScreen("habits");
+                      setEditingHabit(null);
+                  }}
+                  onCreate={handleCreateOrUpdateHabit}
+                  initialData={editingHabit}
                 />
               </motion.div>
             )}

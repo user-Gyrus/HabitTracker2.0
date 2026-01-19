@@ -1,5 +1,5 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Custom hook for PWA update notifications
@@ -8,18 +8,55 @@ import { useState, useEffect } from 'react';
  */
 export function useUpdateNotification() {
   const [showNotification, setShowNotification] = useState(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const lastCheckRef = useRef<number>(0);
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(registration: ServiceWorkerRegistration | undefined) {
-      console.log('[PWA] Service Worker registered:', registration);
+    onRegistered(r) {
+      console.log('[PWA] Service Worker registered');
+      // Save registration for manual checks
+      registrationRef.current = r || null;
+      if (r) {
+        // Also check every 10 minutes as a fallback
+        setInterval(() => {
+          console.log('[PWA] Checking for updates (interval)...');
+          r.update();
+        }, 10 * 60 * 1000); 
+      }
     },
     onRegisterError(error: Error) {
       console.error('[PWA] Service Worker registration error:', error);
     },
   });
+
+  // Check for updates on window focus/visibility change (Throttled)
+  useEffect(() => {
+    const checkUpdate = () => {
+      const now = Date.now();
+      const throttleTime = 15 * 60 * 1000; // 15 minutes
+
+      if (
+        document.visibilityState === 'visible' && 
+        registrationRef.current &&
+        now - lastCheckRef.current > throttleTime
+      ) {
+        console.log('[PWA] App became visible, checking for updates...');
+        registrationRef.current.update();
+        lastCheckRef.current = now;
+      }
+    };
+
+    document.addEventListener('visibilitychange', checkUpdate);
+    window.addEventListener('focus', checkUpdate);
+
+    return () => {
+      document.removeEventListener('visibilitychange', checkUpdate);
+      window.removeEventListener('focus', checkUpdate);
+    };
+  }, []);
 
   // Show notification when update is available
   useEffect(() => {

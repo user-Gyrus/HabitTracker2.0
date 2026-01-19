@@ -4,15 +4,16 @@ import { X, User, Globe, Lock, Minus, Plus, Info } from 'lucide-react';
 interface CreateHabitScreenProps {
   onBack: () => void;
   onCreate: (habit: any) => void;
+  initialData?: any; // Added for edit mode
 }
 
-export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) {
-  const [habitType, setHabitType] = useState<'build' | 'break'>('build');
-  const [microIdentity, setMicroIdentity] = useState('');
-  const [habitName, setHabitName] = useState('');
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
-  const [duration, setDuration] = useState<number>(21);
+export function CreateHabitScreen({ onBack, onCreate, initialData }: CreateHabitScreenProps) {
+  const [habitType, setHabitType] = useState<'build' | 'break'>(initialData?.type || 'build');
+  const [microIdentity, setMicroIdentity] = useState(initialData?.microIdentity || '');
+  const [habitName, setHabitName] = useState(initialData?.name || '');
+  const [selectedDays, setSelectedDays] = useState<number[]>(initialData?.activeDays || [1, 2, 3, 4, 5, 6, 7]);
+  const [visibility, setVisibility] = useState<'public' | 'private'>(initialData?.visibility || 'public');
+  const [duration, setDuration] = useState<number>(initialData?.duration || 21);
   const [showInfo, setShowInfo] = useState(false);
 
   const days = [
@@ -35,14 +36,15 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
     if (!microIdentity || !habitName) return;
 
     onCreate({
+      ...initialData, // Keep ID if editing
       microIdentity,
       name: habitName,
       type: habitType,
       days: selectedDays,
       visibility,
       duration,
-      progress: 0,
-      goal: 1,
+      // progress: 0, // Don't reset progress on edit
+      goal: 1, // Default
     });
   };
 
@@ -56,7 +58,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
         >
           <X size={24} className="text-foreground" />
         </button>
-        <h1 className="text-xl font-semibold text-foreground">New Habit</h1>
+        <h1 className="text-xl font-semibold text-foreground">{initialData ? 'Edit Habit' : 'New Habit'}</h1>
         <div className="w-10"></div> {/* Spacer to keep title centered if needed, or just nothing. Let's use a spacer or just remove it. */ }
       </div>
 
@@ -279,7 +281,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           disabled={!microIdentity || !habitName}
           className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground rounded-full py-4 flex items-center justify-center gap-2 transition-colors mt-8"
         >
-          Start Habit
+          {initialData ? 'Save Changes' : 'Start Habit'}
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path
               d="M7.5 15L12.5 10L7.5 5"

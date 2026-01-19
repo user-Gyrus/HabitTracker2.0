@@ -202,7 +202,13 @@ export const updateHabit = async (req: any, res: Response): Promise<void> => {
         }
 
         // Update fields if provided
-        habit.name = req.body.name || habit.name;
+        if (req.body.name) habit.name = req.body.name;
+        if (req.body.microIdentity) habit.microIdentity = req.body.microIdentity;
+        if (req.body.goal) habit.goal = req.body.goal;
+        if (req.body.duration) habit.duration = req.body.duration;
+        if (req.body.type) habit.type = req.body.type;
+        if (req.body.visibility) habit.visibility = req.body.visibility;
+        if (req.body.days) habit.activeDays = req.body.days;
         
         // Check for completion update
         if (req.body.completions) {

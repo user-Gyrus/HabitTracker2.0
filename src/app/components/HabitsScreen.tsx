@@ -53,6 +53,8 @@ const MENTAL_MODELS: Quote[] = [
 interface HabitsScreenProps {
   habits: Habit[];
   onCompleteHabit: (id: string) => void;
+  onUndoHabit: (id: string) => void;
+  onEditHabit: (id: string) => void;
   onDeleteHabit: (id: string) => void;
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
   streak?: number;
@@ -62,6 +64,8 @@ interface HabitsScreenProps {
 export function HabitsScreen({
   habits,
   onCompleteHabit,
+  onUndoHabit,
+  onEditHabit,
   onDeleteHabit,
   onNavigate,
   streak = 0,
@@ -219,6 +223,8 @@ export function HabitsScreen({
                 completed: habit.completed_today,
               }}
               onComplete={() => onCompleteHabit(habit.id)}
+              onUndo={() => onUndoHabit(habit.id)}
+              onEdit={() => onEditHabit(habit.id)}
               onDelete={() => setHabitToDelete(habit.id)}
             />
           ))
