@@ -52,7 +52,7 @@ function getRandomQuote(quotes: string[], lastIndex: number): { quote: string; i
 }
 
 // Send push notification to all subscribed users
-async function sendNotificationToAll(title: string, body: string) {
+export async function sendNotificationToAll(title: string, body: string) {
   try {
     const users = await User.find({ pushSubscription: { $exists: true, $ne: null } });
 
@@ -99,45 +99,57 @@ async function sendNotificationToAll(title: string, body: string) {
 
 // Schedule morning notification (8:00 AM IST)
 export function scheduleMorningNotification() {
-  // Cron format: minute hour * * *
-  // IST is UTC+5:30, so 8:00 AM IST = 2:30 AM UTC
-  // We'll use 0 8 * * * and assume server runs in IST timezone
-  cron.schedule("0 8 * * *", async () => {
-    const { quote, index } = getRandomQuote(morningQuotes, lastMorningQuoteIndex);
-    lastMorningQuoteIndex = index;
+  // 8:00 AM IST explicitly
+  cron.schedule("0 8 * * *", () => {
+    (async () => {
+      const { quote, index } = getRandomQuote(morningQuotes, lastMorningQuoteIndex);
+      lastMorningQuoteIndex = index;
 
-    console.log(`[${new Date().toISOString()}] Sending morning notification: "${quote}"`);
-    await sendNotificationToAll("Good Morning! 🌅", quote);
-  });
+      console.log(`[${new Date().toISOString()}] Sending morning notification: "${quote}"`);
+      await sendNotificationToAll("Good Morning! 🌅", quote);
+    })().catch(err => console.error("Error in morning notification:", err));
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  } as any);
 
   console.log("Morning notification scheduled for 8:00 AM IST");
 }
 
 // Schedule night notification (8:00 PM IST)
 export function scheduleNightNotification() {
-  // 8:00 PM IST = 14:30 UTC
-  // We'll use 0 20 * * * and assume server runs in IST timezone
-  cron.schedule("0 20 * * *", async () => {
-    const { quote, index } = getRandomQuote(nightQuotes, lastNightQuoteIndex);
-    lastNightQuoteIndex = index;
+  // 8:00 PM IST explicitly
+  cron.schedule("0 20 * * *", () => {
+    (async () => {
+      const { quote, index } = getRandomQuote(nightQuotes, lastNightQuoteIndex);
+      lastNightQuoteIndex = index;
 
-    console.log(`[${new Date().toISOString()}] Sending night notification: "${quote}"`);
-    await sendNotificationToAll("Time to Check In! 🌙", quote);
-  });
+      console.log(`[${new Date().toISOString()}] Sending night notification: "${quote}"`);
+      await sendNotificationToAll("Time to Check In! 🌙", quote);
+    })().catch(err => console.error("Error in night notification:", err));
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  } as any);
 
   console.log("Night notification scheduled for 8:00 PM IST");
 }
 
 // Schedule afternoon reminder (2:00 PM IST)
 export function scheduleAfternoonReminder() {
-  // 2:00 PM IST
-  cron.schedule("0 14 * * *", async () => {
-    const { quote, index } = getRandomQuote(afternoonQuotes, lastAfternoonQuoteIndex);
-    lastAfternoonQuoteIndex = index;
+  // 2:00 PM IST explicitly
+  cron.schedule("0 14 * * *", () => {
+    (async () => {
+      const { quote, index } = getRandomQuote(afternoonQuotes, lastAfternoonQuoteIndex);
+      lastAfternoonQuoteIndex = index;
 
-    console.log(`[${new Date().toISOString()}] Sending afternoon reminder: "${quote}"`);
-    await sendNotificationToAll("Afternoon Check-In ⏰", quote);
-  });
+      console.log(`[${new Date().toISOString()}] Sending afternoon reminder: "${quote}"`);
+      await sendNotificationToAll("Afternoon Check-In ⏰", quote);
+    })().catch(err => console.error("Error in afternoon notification:", err));
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  } as any);
 
   console.log("Afternoon reminder scheduled for 2:00 PM IST");
 }

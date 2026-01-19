@@ -61,3 +61,17 @@ export const unsubscribe = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ message: "Server error" });
   }
 };
+
+import { sendNotificationToAll } from "../services/notificationScheduler";
+
+// Send test notification
+export const sendTestNotification = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log("Triggering test notification...");
+    await sendNotificationToAll("Test Notification 🔔", "This is a test notification from your localhost server!");
+    res.status(200).json({ message: "Test notifications sent" });
+  } catch (error) {
+    console.error("Error sending test notification:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

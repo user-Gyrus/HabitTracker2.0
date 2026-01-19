@@ -104,4 +104,4 @@ npm run dev
 ---
 
 ## 🤝 Contributing
-Built with ❤️ by Nanda Kumar & Team.
+Built with ❤️ by the Atomiq Team
