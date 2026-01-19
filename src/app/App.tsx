@@ -324,9 +324,10 @@ function AppContent() {
       // Update session streak/lastCompletedDate if returned
       if (data.streak !== undefined && session) {
           const updatedSession = {
-              ...session,
+               ...session,
                streak: data.streak,
                streakHistory: data.streakHistory,
+               streakFreezes: data.streakFreezes,
                lastCompletedDate: data.lastCompletedDate
           };
           updateSession(updatedSession);
@@ -379,6 +380,7 @@ function AppContent() {
                    ...session,
                    streak: data.streak,
                    streakHistory: data.streakHistory,
+                   streakFreezes: data.streakFreezes,
                    lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
                  };
                  updateSession(updatedSession);
@@ -429,6 +431,7 @@ function AppContent() {
                    ...session,
                    streak: data.streak,
                    streakHistory: data.streakHistory,
+                   streakFreezes: data.streakFreezes,
                    lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
                  };
                  updateSession(updatedSession);
@@ -458,6 +461,7 @@ function AppContent() {
                    ...session, 
                    streak: data.streak,
                    streakHistory: data.streakHistory,
+                   streakFreezes: data.streakFreezes,
                    lastCompletedDate: data.lastCompletedDate 
                });
           }
@@ -554,6 +558,7 @@ function AppContent() {
                     onNavigate={setCurrentScreen} 
                     updateSession={updateSession}
                     streak={session?.streak || 0}
+                    streakFreezes={session?.streakFreezes || 0}
                 />
               </motion.div>
             )}
@@ -583,6 +588,7 @@ function AppContent() {
                 onClose={() => setShowProfileModal(false)}
                 updateSession={updateSession}
                 streak={session?.streak || 0}
+                streakFreezes={session?.streakFreezes || 0}
             />
         )}
       </div>

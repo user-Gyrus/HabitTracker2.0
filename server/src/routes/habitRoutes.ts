@@ -4,7 +4,8 @@ import {
     createHabit, 
     getHabits, 
     updateHabit, 
-    deleteHabit 
+    deleteHabit,
+    applyStreakFreeze
 } from "../controllers/habitController";
 
 const router = express.Router();
@@ -12,6 +13,9 @@ const router = express.Router();
 router.route("/")
     .post(protect, createHabit)
     .get(protect, getHabits);
+
+router.route("/freeze")
+    .post(protect, applyStreakFreeze);
 
 router.route("/:id")
     .put(protect, updateHabit)

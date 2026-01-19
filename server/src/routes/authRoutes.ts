@@ -37,11 +37,13 @@ router.get(
     
     // Fetch user's streak
     let streakCount = 0;
+    let streakFreezes = 0;
     let lastCompletedDate: Date | null = null;
     try {
         const streakDoc = await Streak.findOne({ user: user._id });
         if (streakDoc) {
             streakCount = streakDoc.streakCount;
+            streakFreezes = streakDoc.streakFreezes || 0;
             lastCompletedDate = streakDoc.lastCompletedDate || null;
         } else {
              // Create initial streak doc if it doesn't exist (e.g. new google user)
@@ -49,6 +51,8 @@ router.get(
                  user: user._id,
                  username: user.username || user.displayName || "Unknown", // Ensure username is present
                  streakCount: 0,
+                 streakFreezes: 0,
+                 frozenDays: [],
                  history: []
              });
         }
@@ -61,19 +65,20 @@ router.get(
         try {
              const streakDoc = await Streak.findOne({ user: user._id });
              if (streakDoc) {
-                 const calculatedStreak = calculateCurrentStreak(streakDoc.history);
+                 const calculatedStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
                  if (streakDoc.streakCount !== calculatedStreak) {
                      streakDoc.streakCount = calculatedStreak;
                      await streakDoc.save();
                  }
                  streakCount = calculatedStreak;
+                 streakFreezes = streakDoc.streakFreezes || 0;
              }
         } catch (e) { console.error(e); }
     }
 
      const token = require("../utils/generateToken").default(user._id.toString());
      
-     // Redirect to frontend with token, streak, and lastCompletedDate
+     // Redirect to frontend with token, streak, streakFreezes, and lastCompletedDate
      const dateStr = lastCompletedDate ? lastCompletedDate.toISOString() : "";
      
      // Decode origin from state
@@ -87,7 +92,7 @@ router.get(
         }
      }
 
-     res.redirect(`${origin}/login?token=${token}&id=${user._id}&username=${user.username}&displayName=${user.displayName}&friendCode=${user.friendCode}&streak=${streakCount}&lastCompletedDate=${dateStr}`);
+     res.redirect(`${origin}/login?token=${token}&id=${user._id}&username=${user.username}&displayName=${user.displayName}&friendCode=${user.friendCode}&streak=${streakCount}&streakFreezes=${streakFreezes}&lastCompletedDate=${dateStr}`);
   }
 );
 import { getISTDate, getYesterdayISTDate } from "../utils/dateUtils";
@@ -121,8 +126,8 @@ router.get("/me", protect, async (req: any, res) => {
         streakHistory = streakDoc.history || [];
 
         // --- VALIDATION: Check if streak is broken ---
-        // Use robust calculation utility
-        const calculatedStreak = calculateCurrentStreak(streakHistory);
+        // Use robust calculation utility with frozenDays
+        const calculatedStreak = calculateCurrentStreak(streakHistory, streakDoc.frozenDays);
         
         if (streakCount !== calculatedStreak) {
             console.log(`[Streak Check] Correcting streak for user ${user.username}. Old: ${streakCount}, New: ${calculatedStreak}`);
@@ -141,6 +146,8 @@ router.get("/me", protect, async (req: any, res) => {
             friend_code: user.friendCode, // Keep for safety
             streak: streakCount,
             streakHistory: streakHistory, // New field for calendar
+            streakFreezes: streakDoc.streakFreezes || 0, // Add freeze count
+            frozenDays: streakDoc.frozenDays || [], // Add frozen days
             lastCompletedDate: lastCompletedDate
         });
     } catch (error) {

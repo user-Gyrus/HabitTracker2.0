@@ -7,6 +7,8 @@ export interface IStreak extends Document {
   lastCompletedDate?: Date; // Timestamp of update
   lastCompletedDateIST?: string; // YYYY-MM-DD
   history: string[]; // Array of YYYY-MM-DD
+  streakFreezes: number;
+  frozenDays: string[];
 }
 
 const StreakSchema = new Schema<IStreak>(
@@ -35,6 +37,14 @@ const StreakSchema = new Schema<IStreak>(
     },
     history: {
       type: [String], // Array of date strings
+      default: [],
+    },
+    streakFreezes: {
+      type: Number,
+      default: 0,
+    },
+    frozenDays: {
+      type: [String], // Dates where freeze was used
       default: [],
     },
   },

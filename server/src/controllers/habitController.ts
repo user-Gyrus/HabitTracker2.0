@@ -9,7 +9,7 @@ import { calculateCurrentStreak } from "../utils/streakUtils";
 // --- Centralized Streak Sync Logic ---
 // This function is the single source of truth for streak updates.
 // It checks if ALL active habits are completed for today (IST) and updates the streak accordingly.
-const syncStreakInternal = async (userId: string) => {
+export const syncStreakInternal = async (userId: string) => {
     const todayIST = getISTDate();
     
     // 1. Fetch ALL active habits for this user
@@ -108,8 +108,21 @@ const syncStreakInternal = async (userId: string) => {
     // 5. Recalculate Streak from History (State Correction)
     // Only save if history changed OR if we suspect the count might be wrong (safety)
     // Actually, let's always recalculate to ensure correctness
-    const currentStreak = calculateCurrentStreak(streakDoc.history);
+    // 5. Recalculate Streak from History (State Correction)
+    // 5. Recalculate Streak from History (State Correction)
+    const currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
     
+    // Check for Freeze Award (Every 7 days)
+    // Only award if we crossed a multiplier of 7
+    const oldStreak = streakDoc.streakCount;
+    if (currentStreak > oldStreak) {
+        const oldMilestone = Math.floor(oldStreak / 7);
+        const newMilestone = Math.floor(currentStreak / 7);
+        if (newMilestone > oldMilestone) {
+            streakDoc.streakFreezes = (streakDoc.streakFreezes || 0) + (newMilestone - oldMilestone);
+        }
+    }
+
     if (streakDoc.streakCount !== currentStreak) {
         streakDoc.streakCount = currentStreak;
         streakUpdated = true;
@@ -124,7 +137,9 @@ const syncStreakInternal = async (userId: string) => {
         streakUpdated,
         lastCompletedDate: streakDoc.lastCompletedDate,
         streakHistory: streakDoc.history || [],
-        lastCompletedDateIST: streakDoc.lastCompletedDateIST
+        lastCompletedDateIST: streakDoc.lastCompletedDateIST,
+        streakFreezes: streakDoc.streakFreezes,
+        frozenDays: streakDoc.frozenDays
     };
 };
 
@@ -290,7 +305,56 @@ export const deleteHabit = async (req: any, res: Response): Promise<void> => {
         });
 
     } catch (error) {
-        console.error(error);
         res.status(500).json({ message: "Server Error" });
     }
 }
+
+// @desc    Apply streak freeze to recover streak
+// @route   POST /api/habits/freeze
+// @access  Private
+export const applyStreakFreeze = async (req: any, res: Response): Promise<void> => {
+    try {
+        const userId = req.user._id;
+        const streakDoc = await Streak.findOne({ user: userId });
+
+        if (!streakDoc) {
+             res.status(404).json({ message: "Streak record not found" });
+             return;
+        }
+
+        const { checkStreakRecovery, calculateCurrentStreak } = require("../utils/streakUtils");
+        const recoveryInfo = checkStreakRecovery(streakDoc.history, streakDoc.frozenDays);
+
+        if (!recoveryInfo.recoverable) {
+             res.status(400).json({ message: "Streak is not recoverable or no gap found." });
+             return;
+        }
+
+        const cost = recoveryInfo.daysNeeded;
+        if ((streakDoc.streakFreezes || 0) < cost) {
+             res.status(400).json({ message: "Not enough streak freezes available." });
+             return;
+        }
+
+        // Apply freeze
+        streakDoc.streakFreezes -= cost;
+        streakDoc.frozenDays = [...(streakDoc.frozenDays || []), ...recoveryInfo.missingDates];
+        
+        // Recalculate streak immediately to reflect recovery
+        streakDoc.streakCount = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+
+        await streakDoc.save();
+
+        res.json({
+            message: "Streak recovered successfully",
+            streak: streakDoc.streakCount,
+            streakFreezes: streakDoc.streakFreezes,
+            frozenDays: streakDoc.frozenDays,
+            streakHistory: streakDoc.history
+        });
+
+    } catch (error) {
+        console.error("Error applying freeze:", error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};

@@ -10,6 +10,7 @@ import {
   X,
   Share2,
   MessageCircle,
+  Flame,
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
@@ -29,6 +30,7 @@ interface ProfileScreenProps {
   onClose?: () => void;
   updateSession?: (updatedUser: any) => void;
   streak?: number;
+  streakFreezes?: number;
 }
 
 interface Profile {
@@ -39,11 +41,12 @@ interface Profile {
   email?: string;
   token?: string;
   friendCode?: string;
+  streakFreezes?: number;
 }
 
 const STORAGE_KEY_SESSION = "habit-tracker-session";
 
-export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSession, streak = 0 }: ProfileScreenProps) {
+export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSession, streak = 0, streakFreezes = 0 }: ProfileScreenProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -243,7 +246,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
      if (!profile?.friendCode) return;
      
      // New Share Text
-     const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends 🔥\nJoin me here: https://atomiq.club/invite/${profile.friendCode}\nOnce you sign up, we’ll be connected automatically.`;
+     const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends🔥\nOnce you sign up, we’ll be connected automatically. \n`;
      const shareUrl = `https://atomiq.club/invite/${profile.friendCode}`;
      const shareTitle = "Join Atomiq with me";
 
@@ -283,6 +286,43 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   };
 
   if (!profile) return null;
+
+const handleUseFreeze = async () => {
+    if (!profile || !profile.token) return;
+    
+    try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await fetch(`${apiUrl}/habits/freeze`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${profile.token}`,
+            },
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            toast.success("Streak Frozen! ❄️", {
+                description: "Your streak has been recovered."
+            });
+            // Update session
+            if (updateSession) {
+                updateSession({
+                    streak: data.streak,
+                    streakFreezes: data.streakFreezes,
+                    streakHistory: data.streakHistory,
+                    lastCompletedDate: new Date() // Approximate, or use data.lastCompletedDate
+                });
+            }
+        } else {
+            const errData = await res.json();
+            toast.error(errData.message || "Failed to use freeze");
+        }
+    } catch (error) {
+        console.error("Error using freeze:", error);
+        toast.error("Something went wrong");
+    }
+  };
 
   const profileContent = (
     <div className={!isModal ? "min-h-screen" : ""}>
@@ -345,14 +385,55 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
           </div>
         </div>
 
-        {/* Current Streak */}
-        <div className="bg-gradient-to-br from-primary to-orange-400 rounded-2xl p-6 mb-6 text-center shadow-lg shadow-primary/20">
-          <p className="text-sm text-white/90 mb-2 uppercase tracking-wide font-medium">
-            Current Streak
-          </p>
-          <p className="text-5xl font-bold mb-2 text-white">{streak}</p>
-          <p className="text-white/95 font-medium">Days on fire 🔥</p>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+             {/* Current Streak */}
+            <div className="bg-gradient-to-br from-primary to-orange-400 rounded-2xl p-6 text-center shadow-lg shadow-primary/20 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-10">
+                    <Flame size={48} className="text-white" />
+                </div>
+                <p className="text-xs text-white/90 mb-1 uppercase tracking-wide font-medium">
+                    Streak
+                </p>
+                <p className="text-4xl font-bold mb-1 text-white">{streak}</p>
+                <p className="text-xs text-white/90 font-medium opacity-80">Days on fire 🔥</p>
+            </div>
+
+            {/* Streak Freezes */}
+            <div className="bg-gradient-to-br from-blue-400 to-cyan-500 rounded-2xl p-6 text-center shadow-lg shadow-blue-400/20 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-15">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M2.5 10a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0Z"/><path d="M12 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/><path d="M21.5 10a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/><path d="M12 12v8"/><path d="m6 12 5-3"/><path d="m18 12-5-3"/><path d="m9 21 3-4 3 4"/></svg>
+                </div>
+                <p className="text-xs text-white/90 mb-1 uppercase tracking-wide font-medium">
+                    Freezes
+                </p>
+                <p className="text-4xl font-bold mb-1 text-white">{streakFreezes !== undefined ? streakFreezes : 0}</p>
+                <p className="text-xs text-white/90 font-medium opacity-80">Available ❄️</p>
+            </div>
         </div>
+        
+        {/* RECOVERY ACTION */}
+        {streak === 0 && (streakFreezes || 0) > 0 && (
+             <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                 <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M19 19.34a2 2 0 0 0 1.25-2.73L13.73 3.3a2 2 0 0 0-3.46 0L3.73 16.61A2 2 0 0 0 5 19.34Z"/></svg>
+                         </div>
+                         <div>
+                             <h4 className="font-bold text-red-500 text-sm">Streak Broken!</h4>
+                             <p className="text-xs text-muted-foreground">Use a freeze to recover it.</p>
+                         </div>
+                     </div>
+                     <button 
+                         onClick={handleUseFreeze}
+                         className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                     >
+                         Use Freeze
+                     </button>
+                 </div>
+             </div>
+        )}
 
         {/* Preferences */}
         <div className="mb-6">

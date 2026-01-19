@@ -30,7 +30,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Recalculate streak to ensure consistency (e.g. if user missed yesterday)
-    const calculatedStreak = calculateCurrentStreak(streakDoc.history);
+    const calculatedStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
     // If mismatch, update DB (Self-healing)
     if (streakDoc.streakCount !== calculatedStreak) {
         streakDoc.streakCount = calculatedStreak;
@@ -44,6 +44,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
       friendCode: user.friendCode,
       email: user.email,
       streak: streakDoc.streakCount, // Return from Streak collection
+      streakFreezes: streakDoc.streakFreezes,
       lastCompletedDate: streakDoc.lastCompletedDate,
       token: generateToken(user._id.toString()),
     });
@@ -79,7 +80,9 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         user: user._id,
         username: user.username,
         streakCount: 0,
-        history: []
+        history: [],
+        streakFreezes: 0,
+        frozenDays: []
     });
 
     res.status(201).json({
@@ -89,6 +92,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       friendCode: user.friendCode,
       email: user.email,
       streak: streakDoc.streakCount,
+      streakFreezes: streakDoc.streakFreezes,
       lastCompletedDate: null,
       token: generateToken(user._id.toString()),
     });
@@ -109,8 +113,12 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
     
     // Recalculate streak to ensure consistenc
     let currentStreak = 0;
+    let streakFreezes = 0;
+    
     if (streakDoc) {
-         currentStreak = calculateCurrentStreak(streakDoc.history);
+         currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+         streakFreezes = streakDoc.streakFreezes || 0;
+         
          // Auto-repair if needed
          if (streakDoc.streakCount !== currentStreak) {
              streakDoc.streakCount = currentStreak;
@@ -125,6 +133,7 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
       friendCode: user.friendCode,
       email: user.email,
       streak: currentStreak,
+      streakFreezes: streakFreezes,
       lastCompletedDate: streakDoc ? streakDoc.lastCompletedDate : null,
       friend_code: user.friendCode // For safety/compatibility
     });
@@ -162,8 +171,11 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
     
     // Recalculate streak
     let currentStreak = 0;
+    let streakFreezes = 0;
     if (streakDoc) {
-        currentStreak = calculateCurrentStreak(streakDoc.history);
+        currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+        streakFreezes = streakDoc.streakFreezes || 0;
+        
         if (streakDoc.streakCount !== currentStreak) {
             streakDoc.streakCount = currentStreak;
             await streakDoc.save();
@@ -180,6 +192,7 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
       friendCode: updatedUser.friendCode,
       email: updatedUser.email,
       streak: currentStreak,
+      streakFreezes: streakFreezes,
       token: generateToken(updatedUser._id.toString()),
     });
   } else {
