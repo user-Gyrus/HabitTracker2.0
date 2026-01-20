@@ -4,6 +4,9 @@ import generateToken from "../utils/generateToken";
 import { generateFriendCode } from "../utils/generateFriendCode";
 import Streak from "../models/Streak"; // New Streak model
 import { calculateCurrentStreak } from "../utils/streakUtils";
+import { OAuth2Client } from "google-auth-library";
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -199,3 +202,89 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
     res.status(404).json({ message: "User not found" });
   }
 };
+
+// @desc    Google Sign-In for Mobile (ID Token verification)
+// @route   POST /api/auth/google/mobile
+// @access  Public
+export const googleMobileLogin = async (req: Request, res: Response): Promise<void> => {
+  const { id_token } = req.body;
+
+  if (!id_token) {
+    res.status(400).json({ message: "ID Token is required" });
+    return;
+  }
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload) {
+      res.status(400).json({ message: "Invalid ID Token" });
+      return;
+    }
+
+    const { sub: googleId, email, name } = payload;
+
+    let user = await User.findOne({
+      $or: [
+        { googleId: googleId },
+        { email: email }
+      ]
+    });
+
+    if (!user) {
+      const baseName = name || email?.split('@')[0] || "user";
+      user = await User.create({
+        username: baseName.replace(/\s+/g, "").toLowerCase() + Math.floor(Math.random() * 1000),
+        displayName: baseName,
+        email: email,
+        googleId: googleId,
+        password: "", // No password
+        friendCode: generateFriendCode(),
+      });
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
+
+    // Handle Streak
+    let streakDoc = await Streak.findOne({ user: user._id });
+    if (!streakDoc) {
+      streakDoc = await Streak.create({
+        user: user._id,
+        username: user.username,
+        streakCount: 0,
+        history: [],
+        streakFreezes: 0,
+        frozenDays: []
+      });
+    }
+
+    // Recalculate streak
+    const calculatedStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+    if (streakDoc.streakCount !== calculatedStreak) {
+      streakDoc.streakCount = calculatedStreak;
+      await streakDoc.save();
+    }
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      displayName: user.displayName,
+      friendCode: user.friendCode,
+      email: user.email,
+      streak: streakDoc.streakCount,
+      streakFreezes: streakDoc.streakFreezes,
+      lastCompletedDate: streakDoc.lastCompletedDate,
+      token: generateToken(user._id.toString()),
+    });
+
+  } catch (error: any) {
+    console.error("Google Mobile Login Error:", error);
+    res.status(401).json({ message: "Google verification failed", error: error.message });
+  }
+};
+

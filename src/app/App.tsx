@@ -321,14 +321,17 @@ function AppContent() {
       
       const data = res.data;
       
-      // Update session streak/lastCompletedDate if returned
+      // Update session streak and lastCompletedDate if returned
       if (data.streak !== undefined && session) {
           const updatedSession = {
                ...session,
                streak: data.streak,
                streakHistory: data.streakHistory,
                streakFreezes: data.streakFreezes,
-               lastCompletedDate: data.lastCompletedDate
+               lastCompletedDate: data.lastCompletedDate,
+               streakState: data.streakState,
+               emberDays: data.emberDays,
+               completionPercentage: data.completionPercentage
           };
           updateSession(updatedSession);
       }
@@ -381,7 +384,10 @@ function AppContent() {
                    streak: data.streak,
                    streakHistory: data.streakHistory,
                    streakFreezes: data.streakFreezes,
-                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
+                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate,
+                   streakState: data.streakState,
+                   emberDays: data.emberDays,
+                   completionPercentage: data.completionPercentage
                  };
                  updateSession(updatedSession);
              }
@@ -432,7 +438,10 @@ function AppContent() {
                    streak: data.streak,
                    streakHistory: data.streakHistory,
                    streakFreezes: data.streakFreezes,
-                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate
+                   lastCompletedDate: data.lastCompletedDate || session.lastCompletedDate,
+                   streakState: data.streakState,
+                   emberDays: data.emberDays,
+                   completionPercentage: data.completionPercentage
                  };
                  updateSession(updatedSession);
              }
@@ -462,7 +471,10 @@ function AppContent() {
                    streak: data.streak,
                    streakHistory: data.streakHistory,
                    streakFreezes: data.streakFreezes,
-                   lastCompletedDate: data.lastCompletedDate 
+                   lastCompletedDate: data.lastCompletedDate,
+                   streakState: data.streakState,
+                   emberDays: data.emberDays,
+                   completionPercentage: data.completionPercentage
                });
           }
       } catch (err) {
@@ -535,6 +547,8 @@ function AppContent() {
                     onNavigate={setCurrentScreen}
                     streak={session?.streak || 0}
                     streakHistory={session?.streakHistory || []}
+                    streakState={session?.streakState || 'extinguished'}
+                    completionPercentage={session?.completionPercentage || 0}
                   />
               </motion.div>
             )}

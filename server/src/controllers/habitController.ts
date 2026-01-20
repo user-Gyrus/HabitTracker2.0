@@ -8,16 +8,19 @@ import { calculateCurrentStreak } from "../utils/streakUtils";
 
 // --- Centralized Streak Sync Logic ---
 // This function is the single source of truth for streak updates.
-// It checks if ALL active habits are completed for today (IST) and updates the streak accordingly.
+// Implements Weighted Consistency Model:
+// - 100% completion (Full Flame): Increment streak
+// - 1-99% completion (Embers/Frozen): Maintain streak (freeze)
+// - 0% completion (Extinguished): Reset streak to 0
 export const syncStreakInternal = async (userId: string) => {
     const todayIST = getISTDate();
     
     // 1. Fetch ALL active habits for this user
     const allHabits = await Habit.find({ user: userId } as any);
 
-    // 2. Check if ALL active habits are completed for TODAY (IST)
+    // 2. Check completion status for TODAY (IST)
     // Filter habits that are applicable for today (Recurrence + Duration)
-    const todayDateObj = new Date(todayIST); // Parsing YYYY-MM-DD assumes UTC midnight in JS usually, but accurate enough for diff
+    const todayDateObj = new Date(todayIST);
     const dayOfWeek = todayDateObj.getDay(); // 0-6
     const todayNum = dayOfWeek === 0 ? 7 : dayOfWeek; // 1-7
 
@@ -25,7 +28,6 @@ export const syncStreakInternal = async (userId: string) => {
         // A. Duration Check
         if (h.duration) {
              const created = new Date(h.createdAt);
-             // Normalize to YYYY-MM-DD to match todayIST resolution
              const createdStr = created.toISOString().split('T')[0];
              const createdDateOnly = new Date(createdStr);
              const todayDateOnly = new Date(todayIST);
@@ -42,21 +44,35 @@ export const syncStreakInternal = async (userId: string) => {
         return true;
     });
 
-    let allComplete = false;
+    // 3. Calculate completion percentage
+    let completionPercentage = 0;
+    let completedCount = 0;
+    let streakState: 'active' | 'frozen' | 'extinguished' = 'extinguished';
+    
     if (activeHabitsForToday.length > 0) {
-        allComplete = activeHabitsForToday.every((h: any) => h.completions && h.completions.includes(todayIST));
+        completedCount = activeHabitsForToday.filter((h: any) => 
+            h.completions && h.completions.includes(todayIST)
+        ).length;
+        completionPercentage = (completedCount / activeHabitsForToday.length) * 100;
+        
+        // Determine streak state based on completion percentage
+        if (completionPercentage === 100) {
+            streakState = 'active'; // Full Flame
+        } else if (completionPercentage > 0) {
+            streakState = 'frozen'; // Embers
+        } else {
+            streakState = 'extinguished'; // No completion
+        }
     } else {
         // If there are NO active habits for today (e.g. rest day), 
         // We count it as "streak kept" ONLY if user actually has habits (Rest Day).
-        // If user has 0 habits total, they shouldn't get a streak.
         if (allHabits.length > 0) {
-             allComplete = true; 
-        } else {
-             allComplete = false;
+             streakState = 'active'; // Rest day counts as active
+             completionPercentage = 100;
         }
     }
 
-    // 3. Update Streak Collection Logic
+    // 4. Update Streak Collection Logic
     let streakDoc: any = await Streak.findOne({ user: userId });
     
     // Initialize if missing
@@ -66,17 +82,18 @@ export const syncStreakInternal = async (userId: string) => {
              user: userId,
              username: user?.username || "User",
              streakCount: 0,
-             history: []
+             history: [],
+             emberDays: [],
+             streakState: 'extinguished'
          });
     }
 
-    const lastDateIST = streakDoc.lastCompletedDateIST;
     let streakUpdated = false;
     let historyChanged = false;
 
-    // 4. Update History Based on Completion Status
-    if (allComplete) {
-         // Add today to history if not present
+    // 5. Update History and Ember Days Based on Completion Status
+    if (streakState === 'active') {
+         // Full Flame: Add today to history if not present
          if (!streakDoc.history.includes(todayIST)) {
              streakDoc.history.push(todayIST);
              historyChanged = true;
@@ -85,35 +102,62 @@ export const syncStreakInternal = async (userId: string) => {
              streakDoc.lastCompletedDate = new Date();
              streakDoc.lastCompletedDateIST = todayIST;
          }
-    } else {
-         // Remove today from history if present (e.g. user unticked a habit, or added a new one that isn't done)
-         const index = streakDoc.history.indexOf(todayIST);
-         if (index > -1) {
-             streakDoc.history.splice(index, 1);
+         
+         // Remove from emberDays if it was there (user completed remaining habits)
+         const emberIndex = streakDoc.emberDays.indexOf(todayIST);
+         if (emberIndex > -1) {
+             streakDoc.emberDays.splice(emberIndex, 1);
+             historyChanged = true;
+         }
+         
+    } else if (streakState === 'frozen') {
+         // Embers/Frozen: Add today to emberDays if not present
+         if (!streakDoc.emberDays.includes(todayIST)) {
+             streakDoc.emberDays.push(todayIST);
              historyChanged = true;
              
-             // Revert timestamp variables if we just removed "today"
-             // Ideally we find the new last completed date
+             // Update timestamp to show activity
+             streakDoc.lastCompletedDate = new Date();
+             streakDoc.lastCompletedDateIST = todayIST;
+         }
+         
+         // Remove from history if it was there (user uncompleted a habit)
+         const histIndex = streakDoc.history.indexOf(todayIST);
+         if (histIndex > -1) {
+             streakDoc.history.splice(histIndex, 1);
+             historyChanged = true;
+         }
+         
+    } else {
+         // Extinguished: Remove today from both history and emberDays
+         const histIndex = streakDoc.history.indexOf(todayIST);
+         if (histIndex > -1) {
+             streakDoc.history.splice(histIndex, 1);
+             historyChanged = true;
+         }
+         
+         const emberIndex = streakDoc.emberDays.indexOf(todayIST);
+         if (emberIndex > -1) {
+             streakDoc.emberDays.splice(emberIndex, 1);
+             historyChanged = true;
+         }
+         
+         // Revert timestamp if we just removed "today"
+         if (historyChanged) {
              const newLastDate = streakDoc.history.length > 0
                  ? streakDoc.history[streakDoc.history.length - 1]
-                 : null; // or undefined
+                 : null;
                  
              streakDoc.lastCompletedDateIST = newLastDate;
-             // We can't easily revert the exact ISODate for lastCompletedDate but that's less critical for logic
-             // Let's just leave it or set to null if no history
              if (!newLastDate) streakDoc.lastCompletedDate = null;
          }
     }
 
-    // 5. Recalculate Streak from History (State Correction)
-    // Only save if history changed OR if we suspect the count might be wrong (safety)
-    // Actually, let's always recalculate to ensure correctness
-    // 5. Recalculate Streak from History (State Correction)
-    // 5. Recalculate Streak from History (State Correction)
-    const currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+    // 6. Recalculate Streak from History (State Correction)
+    // The streak calculation now considers emberDays as "continuation" days
+    const currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays, streakDoc.emberDays);
     
     // Check for Freeze Award (Every 7 days)
-    // Only award if we crossed a multiplier of 7
     const oldStreak = streakDoc.streakCount;
     if (currentStreak > oldStreak) {
         const oldMilestone = Math.floor(oldStreak / 7);
@@ -127,6 +171,9 @@ export const syncStreakInternal = async (userId: string) => {
         streakDoc.streakCount = currentStreak;
         streakUpdated = true;
     }
+    
+    // Update streak state
+    streakDoc.streakState = streakState;
 
     if (streakUpdated || historyChanged) {
         await streakDoc.save();
@@ -139,7 +186,12 @@ export const syncStreakInternal = async (userId: string) => {
         streakHistory: streakDoc.history || [],
         lastCompletedDateIST: streakDoc.lastCompletedDateIST,
         streakFreezes: streakDoc.streakFreezes,
-        frozenDays: streakDoc.frozenDays
+        frozenDays: streakDoc.frozenDays,
+        emberDays: streakDoc.emberDays || [],
+        streakState: streakDoc.streakState,
+        completionPercentage: Math.round(completionPercentage),
+        completedHabits: completedCount,
+        totalHabits: activeHabitsForToday.length
     };
 };
 
@@ -178,7 +230,10 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
         ...habit.toObject(),
         streak: streakInfo.streak,
         streakHistory: streakInfo.streakHistory,
-        lastCompletedDate: streakInfo.lastCompletedDate
+        lastCompletedDate: streakInfo.lastCompletedDate,
+        streakState: streakInfo.streakState,
+        emberDays: streakInfo.emberDays,
+        completionPercentage: streakInfo.completionPercentage
     });
   } catch (error) {
     console.error("Error creating habit:", error);
@@ -240,7 +295,10 @@ export const updateHabit = async (req: any, res: Response): Promise<void> => {
             streak: streakInfo.streak,
             streakHistory: streakInfo.streakHistory,
             streakUpdated: streakInfo.streakUpdated,
-            lastCompletedDate: streakInfo.lastCompletedDate
+            lastCompletedDate: streakInfo.lastCompletedDate,
+            streakState: streakInfo.streakState,
+            emberDays: streakInfo.emberDays,
+            completionPercentage: streakInfo.completionPercentage
         });
 
     } catch (error) {
@@ -301,7 +359,10 @@ export const deleteHabit = async (req: any, res: Response): Promise<void> => {
             message: "Habit removed", 
             streak: streakInfo.streak,
             streakHistory: streakInfo.streakHistory,
-            lastCompletedDate: streakInfo.lastCompletedDate 
+            lastCompletedDate: streakInfo.lastCompletedDate,
+            streakState: streakInfo.streakState,
+            emberDays: streakInfo.emberDays,
+            completionPercentage: streakInfo.completionPercentage
         });
 
     } catch (error) {
@@ -341,7 +402,7 @@ export const applyStreakFreeze = async (req: any, res: Response): Promise<void> 
         streakDoc.frozenDays = [...(streakDoc.frozenDays || []), ...recoveryInfo.missingDates];
         
         // Recalculate streak immediately to reflect recovery
-        streakDoc.streakCount = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
+        streakDoc.streakCount = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays, streakDoc.emberDays || []);
 
         await streakDoc.save();
 

@@ -1,5 +1,5 @@
 import express from "express";
-import { authUser, registerUser, updateUserProfile } from "../controllers/authController";
+import { authUser, registerUser, updateUserProfile, googleMobileLogin } from "../controllers/authController";
 import { protect } from "../middleware/authMiddleware";
 
 import passport from "passport";
@@ -27,6 +27,8 @@ router.get("/google", (req, res, next) => {
 
 import Streak from "../models/Streak"; // Ensure this import exists at top
 import { calculateCurrentStreak } from "../utils/streakUtils";
+
+router.post("/google/callback", googleMobileLogin);
 
 router.get(
   "/google/callback",

@@ -72,8 +72,14 @@ export async function sendNotificationToAll(title: string, body: string) {
       const payload = JSON.stringify({
         title,
         body,
-        icon: "/pwa-192x192.png",
-        badge: "/pwa-192x192.png",
+        // Use absolute URL for the icon - this resolves the "white circle" issue
+        // Android often requires a monochrome icon for the small icon (badge)
+        icon: "https://atomiq.club/pwa-192x192.png", 
+        badge: "https://atomiq.club/pwa-192x192.png",
+        vibrate: [100, 50, 100],
+        data: {
+          url: "https://atomiq.club"
+        }
       });
 
       try {

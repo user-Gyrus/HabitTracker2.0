@@ -3,51 +3,57 @@ import { getISTDate, getYesterdayISTDate } from "./dateUtils";
 /**
  * Calculates the current streak based on a history of completion dates.
  * 
- * Logic:
+ * Logic (Weighted Consistency Model):
  * 1. Sorts history dates in descending order (newest first).
  * 2. Checks if the most recent completion is either Today or Yesterday (IST).
  * 3. If not, streak is broken -> 0.
  * 4. If yes, iterates backwards to count consecutive days.
+ * 5. Ember days (partial completion) count as continuation days but don't increment streak.
  * 
-// @param frozenDays Array of date strings "YYYY-MM-DD" where freeze was used
+ * @param history Array of date strings "YYYY-MM-DD" with 100% completion
+ * @param frozenDays Array of date strings "YYYY-MM-DD" where freeze was used
+ * @param emberDays Array of date strings "YYYY-MM-DD" with partial completion (1-99%)
  * @returns number The calculated streak count
  */
-export const calculateCurrentStreak = (history: string[], frozenDays: string[] = []): number => {
-    // Merge history and frozenDays for calculation
-    const effectiveHistory = [...(history || []), ...(frozenDays || [])];
+export const calculateCurrentStreak = (
+    history: string[], 
+    frozenDays: string[] = [], 
+    emberDays: string[] = []
+): number => {
+    // Merge history, frozenDays, and emberDays for checking continuity
+    // But only count history (100% completion days) toward the streak number
+    const allActivityDays = new Set([...(history || []), ...(frozenDays || []), ...(emberDays || [])]);
+    const fullCompletionDays = new Set([...(history || []), ...(frozenDays || [])]);
     
-    if (!effectiveHistory || effectiveHistory.length === 0) return 0;
+    if (allActivityDays.size === 0) return 0;
 
-    // 1. Sort descending and remove duplicates
-    const uniqueHistory = Array.from(new Set(effectiveHistory)).sort((a, b) => {
+    // 1. Sort all activity days descending and remove duplicates
+    const sortedActivityDays = Array.from(allActivityDays).sort((a, b) => {
         return new Date(b).getTime() - new Date(a).getTime();
     });
 
-    if (uniqueHistory.length === 0) return 0;
+    if (sortedActivityDays.length === 0) return 0;
 
     const today = getISTDate();
     const yesterday = getYesterdayISTDate(today);
-    const lastCompleted = uniqueHistory[0];
+    const lastActivity = sortedActivityDays[0];
 
-    // 2. Check if streak is alive (Last completed must be Today or Yesterday)
-    // If last completed date is BEFORE yesterday, streak is broken.
-    if (lastCompleted !== today && lastCompleted !== yesterday) {
+    // 2. Check if streak is alive (Last activity must be Today or Yesterday)
+    if (lastActivity !== today && lastActivity !== yesterday) {
         return 0;
     }
 
-    // 3. Count consecutive days
+    // 3. Count consecutive days, but only increment for full completion days
     let streak = 0;
-    let expectedDate = lastCompleted;
+    let expectedDate = lastActivity;
 
-    // We start counting from the last completed date
-    // Note: If lastCompleted is Today, we count it.
-    // If lastCompleted is Yesterday, we count it.
-    
-    // Iterate through history
-    for (const dateStr of uniqueHistory) {
+    for (const dateStr of sortedActivityDays) {
         if (dateStr === expectedDate) {
-            streak++;
-            // Set next expected date to be "yesterday" relative to current `dateStr`
+            // Only increment streak if this is a full completion day (not just ember)
+            if (fullCompletionDays.has(dateStr)) {
+                streak++;
+            }
+            // Move to next expected date (ember days maintain continuity)
             expectedDate = getYesterdayISTDate(dateStr);
         } else {
             // Gap found, stop counting

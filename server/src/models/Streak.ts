@@ -6,9 +6,11 @@ export interface IStreak extends Document {
   streakCount: number;
   lastCompletedDate?: Date; // Timestamp of update
   lastCompletedDateIST?: string; // YYYY-MM-DD
-  history: string[]; // Array of YYYY-MM-DD
+  history: string[]; // Array of YYYY-MM-DD (100% completion days)
   streakFreezes: number;
-  frozenDays: string[];
+  frozenDays: string[]; // Days recovered using streak freeze feature
+  streakState: 'active' | 'frozen' | 'extinguished'; // Current streak status
+  emberDays: string[]; // Array of YYYY-MM-DD (partial completion days)
 }
 
 const StreakSchema = new Schema<IStreak>(
@@ -36,7 +38,7 @@ const StreakSchema = new Schema<IStreak>(
       default: null,
     },
     history: {
-      type: [String], // Array of date strings
+      type: [String], // Array of date strings (100% completion)
       default: [],
     },
     streakFreezes: {
@@ -45,6 +47,15 @@ const StreakSchema = new Schema<IStreak>(
     },
     frozenDays: {
       type: [String], // Dates where freeze was used
+      default: [],
+    },
+    streakState: {
+      type: String,
+      enum: ['active', 'frozen', 'extinguished'],
+      default: 'extinguished',
+    },
+    emberDays: {
+      type: [String], // Dates with partial completion (1-99%)
       default: [],
     },
   },
