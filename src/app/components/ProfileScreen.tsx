@@ -21,6 +21,7 @@ import {
   unsubscribeFromPushNotifications,
   isSubscribedToPushNotifications 
 } from "../../lib/pushNotifications";
+import { API_URL } from "../../config";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -76,8 +77,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
       if (!parsedProfile.friendCode && parsedProfile.token) {
         const fetchFriendCode = async () => {
           try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const res = await fetch(`${apiUrl}/auth/profile`, {
+            const res = await fetch(`${API_URL}/auth/profile`, {
               headers: {
                 Authorization: `Bearer ${parsedProfile.token}`,
               },
@@ -198,8 +198,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
 
       // 2. API Update (Backend)
       if (profile.token) {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/auth/profile`, {
+        const res = await fetch(`${API_URL}/auth/profile`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -291,8 +290,7 @@ const handleUseFreeze = async () => {
     if (!profile || !profile.token) return;
     
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/habits/freeze`, {
+        const res = await fetch(`${API_URL}/habits/freeze`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

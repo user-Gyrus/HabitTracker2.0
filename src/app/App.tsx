@@ -104,13 +104,13 @@ function AppContent() {
      } catch (err: any) {
         console.error("Failed to process invite:", err);
         const msg = err.response?.data?.message || "Could not process invite link";
-        // Convert to toast error but don't block app flow
-        // Only show if it's not a "already friends" or "self add" redundant error? 
-        // Actually showing error is good feedback.
+        
+        // Always clear the pending invite code to prevent infinite retry loop
+        localStorage.removeItem('pendingInviteCode');
+        
+        // Show error toast (except for "already friends" case which is not really an error)
         if (msg !== "User is already your friend") {
              toast.error(msg);
-        } else {
-             localStorage.removeItem('pendingInviteCode'); // Clear it anyway if already friends
         }
      }
   };

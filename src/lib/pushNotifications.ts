@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { API_URL, VAPID_PUBLIC_KEY } from '../config';
 
 // Convert VAPID public key from base64 to Uint8Array
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -52,12 +52,11 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
     // Get service worker registration
     const registration = await navigator.serviceWorker.ready;
 
-    // Get VAPID public key from environment
-    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-    console.log('🔑 VAPID Key Length:', vapidPublicKey?.length);
-    console.log('🔑 VAPID Key:', vapidPublicKey);
+    // Get VAPID public key from config
+    console.log('🔑 VAPID Key Length:', VAPID_PUBLIC_KEY?.length);
+    console.log('🔑 VAPID Key:', VAPID_PUBLIC_KEY);
     
-    if (!vapidPublicKey) {
+    if (!VAPID_PUBLIC_KEY) {
       console.error("VAPID public key not configured");
       return false;
     }
@@ -65,7 +64,7 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
     // Subscribe to push notifications
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
     });
 
     // Send subscription to backend

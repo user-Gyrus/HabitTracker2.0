@@ -4,6 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Determine if this is a development build
+const isDevelopment = process.env.VITE_ENV === 'development';
+const appName = isDevelopment ? 'Atomiq Developer' : 'Atomiq';
+const themeColor = isDevelopment ? '#f97316' : '#ffffff'; // Orange for dev, white for prod
+
 export default defineConfig({
   plugins: [
     // The React and Tailwind plugins are both required for Make, even if
@@ -36,11 +41,13 @@ export default defineConfig({
       },
       includeAssets: ['vite.svg', 'logo-pwa-edit.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
-        name: 'Atomiq',
-        short_name: 'Atomiq',
-        description: 'Track your habits and build better routines',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        name: appName,
+        short_name: appName,
+        description: isDevelopment 
+          ? 'Developer build - Track your habits and build better routines' 
+          : 'Track your habits and build better routines',
+        theme_color: themeColor,
+        background_color: themeColor,
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
