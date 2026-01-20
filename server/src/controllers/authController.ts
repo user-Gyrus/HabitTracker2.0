@@ -49,6 +49,10 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
       streak: streakDoc.streakCount, // Return from Streak collection
       streakFreezes: streakDoc.streakFreezes,
       lastCompletedDate: streakDoc.lastCompletedDate,
+      streakHistory: streakDoc.history,
+      streakState: streakDoc.streakState,
+      emberDays: streakDoc.emberDays,
+      completionPercentage: streakDoc.completionPercentage,
       token: generateToken(user._id.toString()),
     });
   } else {
@@ -97,6 +101,10 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       streak: streakDoc.streakCount,
       streakFreezes: streakDoc.streakFreezes,
       lastCompletedDate: null,
+      streakHistory: streakDoc.history,
+      streakState: streakDoc.streakState,
+      emberDays: streakDoc.emberDays,
+      completionPercentage: streakDoc.completionPercentage,
       token: generateToken(user._id.toString()),
     });
   } else {
@@ -279,6 +287,10 @@ export const googleMobileLogin = async (req: Request, res: Response): Promise<vo
       streak: streakDoc.streakCount,
       streakFreezes: streakDoc.streakFreezes,
       lastCompletedDate: streakDoc.lastCompletedDate,
+      streakHistory: streakDoc.history,
+      streakState: streakDoc.streakState,
+      emberDays: streakDoc.emberDays,
+      completionPercentage: streakDoc.completionPercentage,
       token: generateToken(user._id.toString()),
     });
 

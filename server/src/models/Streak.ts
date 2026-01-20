@@ -11,6 +11,7 @@ export interface IStreak extends Document {
   frozenDays: string[]; // Days recovered using streak freeze feature
   streakState: 'active' | 'frozen' | 'extinguished'; // Current streak status
   emberDays: string[]; // Array of YYYY-MM-DD (partial completion days)
+  completionPercentage?: number; // Today's completion percentage (0-100)
 }
 
 const StreakSchema = new Schema<IStreak>(
@@ -57,6 +58,12 @@ const StreakSchema = new Schema<IStreak>(
     emberDays: {
       type: [String], // Dates with partial completion (1-99%)
       default: [],
+    },
+    completionPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
     },
   },
   { timestamps: true }
