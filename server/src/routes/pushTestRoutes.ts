@@ -30,7 +30,7 @@ router.post("/test", async (req: Request, res: Response) => {
         title: 'Test Notification 🔔',
         body: 'This is a manual test notification from the server!',
         icon: '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
+        badge: '/badge-96x96.png',
         url: '/'
       });
 

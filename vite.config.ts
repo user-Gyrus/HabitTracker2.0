@@ -39,7 +39,7 @@ export default defineConfig({
           }
         ]
       },
-      includeAssets: ['vite.svg', 'logo-pwa-edit.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['vite.svg', 'logo-pwa-edit.png', 'pwa-192x192.png', 'pwa-512x512.png', 'badge-96x96.png'],
       manifest: {
         name: appName,
         short_name: appName,

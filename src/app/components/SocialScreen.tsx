@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import { toast } from "sonner";
 import api from "../../lib/api";
+import { FriendsListSkeleton, GroupsCarouselSkeleton } from "./LoadingSkeletons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,6 +85,9 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number} | null>(null);
   const [copied, setCopied] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState<boolean>(true);
+  const [groupsLoading, setGroupsLoading] = useState<boolean>(true);
+  const [searchingFriend, setSearchingFriend] = useState<boolean>(false);
 
   // Confirmation Dialog State
   const [confirmation, setConfirmation] = useState<{
@@ -106,6 +110,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   useEffect(() => {
     const fetchFriends = async () => {
         try {
+            setFriendsLoading(true);
             const res = await api.get("/friends");
             const mappedFriends = res.data.map((f: any) => {
                 // FIX: Use local date parts to avoid UTC shift problems for "Today"
@@ -144,6 +149,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
             setFriends(mappedFriends);
         } catch (err) {
             console.error("Failed to fetch friends", err);
+        } finally {
+            setFriendsLoading(false);
         }
     };
 
@@ -211,6 +218,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   useEffect(() => {
     const fetchGroups = async () => {
         try {
+            setGroupsLoading(true);
             const res = await api.get("/groups");
             setGroups(res.data);
             // Update selected group if open
@@ -220,6 +228,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
             }
         } catch (err) {
             console.error("Failed to fetch groups", err);
+        } finally {
+            setGroupsLoading(false);
         }
     };
     fetchGroups();
@@ -386,7 +396,9 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
 
           {/* Carousel Container with Peek */}
           <div className="relative -mx-5 px-5 overflow-visible">
-            {groups.length === 0 ? (
+            {groupsLoading ? (
+              <GroupsCarouselSkeleton />
+            ) : groups.length === 0 ? (
                  <div className="bg-card-bg rounded-2xl p-6 border border-card-border text-center mx-1 shadow-sm">
                     <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                         <Users className="text-primary" size={24} />
@@ -460,7 +472,9 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
         <div>
           <h2 className="text-xl font-bold mb-4 text-foreground">Your friends</h2>
           <div className="space-y-3">
-            {friends.length === 0 ? (
+            {friendsLoading ? (
+              <FriendsListSkeleton />
+            ) : friends.length === 0 ? (
               <div className="bg-card-bg rounded-2xl p-8 border border-card-border text-center flex flex-col items-center shadow-sm">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <UserPlus className="text-primary" size={32} />
@@ -1082,6 +1096,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                   onClick={async () => {
                     if (friendCode.trim()) {
                       setSearchError(null);
+                      setSearchingFriend(true);
                       try {
                         const res = await api.get(`/friends/search?code=${encodeURIComponent(friendCode)}`);
                         setSearchedFriend({
@@ -1093,13 +1108,19 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                       } catch (err: any) {
                         setSearchError("No user found with this friend code");
                         setSearchedFriend(null);
+                      } finally {
+                        setSearchingFriend(false);
                       }
                     }
                   }}
-                  disabled={!friendCode.trim()}
+                  disabled={!friendCode.trim() || searchingFriend}
                   className="bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground px-6 py-3 rounded-xl font-semibold transition-colors disabled:cursor-not-allowed text-primary-foreground"
                 >
-                  <Search size={20} />
+                  {searchingFriend ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Search size={20} />
+                  )}
                 </button>
               </div>
             </div>

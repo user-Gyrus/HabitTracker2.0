@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
     const options = {
       body: data.body || 'You have a new notification',
       icon: data.icon || '/pwa-192x192.png',
-      badge: data.badge || '/pwa-192x192.png',
+      badge: data.badge || '/badge-96x96.png',
       vibrate: [200, 100, 200],
       tag: 'atomiq-notification',
       requireInteraction: false,

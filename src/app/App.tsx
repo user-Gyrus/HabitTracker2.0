@@ -16,6 +16,7 @@ import { OnboardingScreen } from "./components/OnboardingScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import UpdateNotification from "./components/UpdateNotification";
+import { HabitsScreenSkeleton } from "./components/LoadingSkeletons";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -62,6 +63,7 @@ function AppContent() {
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
   const [habits, setHabits] = useState<UIHabit[]>([]);
+  const [habitsLoading, setHabitsLoading] = useState<boolean>(false);
 
   /* ---------------------------
      INVITE CODE HANDLING
@@ -227,6 +229,7 @@ function AppContent() {
 
     const loadHabits = async () => {
       try {
+        setHabitsLoading(true);
         const res = await api.get('/habits');
         const allHabits: Habit[] = res.data;
         // FIX: Use local date parts to avoid UTC shift problems
@@ -274,6 +277,8 @@ function AppContent() {
         setHabits(normalized);
       } catch (err) {
         console.error("Failed to load habits", err);
+      } finally {
+        setHabitsLoading(false);
       }
     };
 
@@ -556,6 +561,9 @@ function AppContent() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
               >
+                {habitsLoading ? (
+                  <HabitsScreenSkeleton />
+                ) : (
                   <HabitsScreen
                     habits={habits}
                     onCompleteHabit={handleCompleteHabit}
@@ -568,6 +576,7 @@ function AppContent() {
                     streakState={session?.streakState || 'extinguished'}
                     completionPercentage={session?.completionPercentage || 0}
                   />
+                )}
               </motion.div>
             )}
 
