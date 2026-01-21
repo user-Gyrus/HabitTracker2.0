@@ -680,25 +680,25 @@ const handleUseFreeze = async () => {
                         onClick={() => handleApplyPreset("test-freeze")}
                         className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
                       >
-                        Test Freeze (Streak 7, 2 Freezes)
+                        🔥 Active Streak (7 days, 2 freezes)
                       </button>
                       <button
                         onClick={() => handleApplyPreset("test-recovery")}
                         className="w-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
                       >
-                        Test Recovery (Streak 0, 1 Freeze)
+                        ❄️ Test Freeze Recovery (broken streak, 1 freeze)
                       </button>
                       <button
                         onClick={() => handleApplyPreset("test-long-streak")}
                         className="w-full px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
                       >
-                        Test Long Streak (Streak 30, 0 Freezes)
+                        🚀 Long Streak (30 days, 0 freezes)
                       </button>
                       <button
                         onClick={handleResetStreak}
                         className="w-full px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
                       >
-                        Reset All Data
+                        🔄 Reset All Data
                       </button>
                     </div>
                   </div>

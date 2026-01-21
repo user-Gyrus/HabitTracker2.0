@@ -231,29 +231,67 @@ export const applyPreset = async (req: any, res: Response): Promise<void> => {
     const { preset } = req.body;
 
     let updates: any = {};
+    let historyDates: string[] = [];
+
+    // Helper to generate date strings going backwards from today
+    const generateHistory = (days: number, skipLast: number = 0): string[] => {
+      const dates: string[] = [];
+      const today = new Date();
+      
+      for (let i = skipLast; i < days + skipLast; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        // Format as YYYY-MM-DD in IST
+        const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+        dates.push(istDate.toISOString().split('T')[0]);
+      }
+      
+      return dates.reverse(); // Oldest to newest
+    };
 
     switch (preset) {
       case 'test-freeze':
+        // Active 7-day streak with 2 freezes available
+        historyDates = generateHistory(7);
         updates = {
           streakCount: 7,
           streakFreezes: 2,
           streakState: 'active',
+          history: historyDates,
+          lastCompletedDateIST: historyDates[historyDates.length - 1],
+          lastCompletedDate: new Date(),
         };
         break;
+        
       case 'test-recovery':
+        // Broken streak scenario: had a 5-day streak, missed yesterday (gap), has 1 freeze to recover
+        // History: 6 days ago to 2 days ago (5 days), then gap yesterday, nothing today
+        historyDates = generateHistory(5, 2); // 5 days, starting from 6 days ago
         updates = {
-          streakCount: 0,
+          streakCount: 0, // Broken because of the gap
           streakFreezes: 1,
           streakState: 'extinguished',
+          history: historyDates,
+          lastCompletedDateIST: historyDates[historyDates.length - 1],
+          lastCompletedDate: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)), // 2 days ago
+          emberDays: [],
+          frozenDays: [],
         };
         break;
+        
       case 'test-long-streak':
+        // Long 30-day streak, no freezes (earned 4 already, used them)
+        historyDates = generateHistory(30);
         updates = {
           streakCount: 30,
           streakFreezes: 0,
           streakState: 'active',
+          history: historyDates,
+          lastCompletedDateIST: historyDates[historyDates.length - 1],
+          lastCompletedDate: new Date(),
         };
         break;
+        
       default:
         res.status(400).json({ message: 'Invalid preset. Options: test-freeze, test-recovery, test-long-streak' });
         return;
@@ -280,6 +318,7 @@ export const applyPreset = async (req: any, res: Response): Promise<void> => {
         streakFreezes: streak.streakFreezes,
         streakState: streak.streakState,
         completionPercentage: streak.completionPercentage,
+        historyLength: streak.history?.length || 0,
       },
     });
   } catch (error: any) {
