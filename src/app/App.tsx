@@ -195,6 +195,24 @@ function AppContent() {
       }
     }
 
+    // Check for streak freeze earned
+    if (session?.streakFreezes !== undefined && updatedUser.streakFreezes !== undefined) {
+      const oldFreezes = session.streakFreezes;
+      const newFreezes = updatedUser.streakFreezes;
+
+      if (newFreezes > oldFreezes) {
+        const freezesEarned = newFreezes - oldFreezes;
+        // BIG ACHIEVEMENT POPUP FOR STREAK FREEZE
+        showAchievement({
+          title: "Streak Freeze Earned! ❄️",
+          description: `You've earned ${freezesEarned} Streak Freeze${freezesEarned > 1 ? 's' : ''}! Use it to protect your streak on tough days.`,
+          type: "freeze",
+          icon: <div className="text-6xl animate-pulse">❄️</div>
+        });
+      }
+    }
+
+
     const newSession = { ...session, ...updatedUser };
     setSession(newSession);
     localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));

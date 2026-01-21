@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Trophy } from 'lucide-react';
 
-export type AchievementType = 'default' | 'streak' | 'milestone' | 'level-up';
+export type AchievementType = 'default' | 'streak' | 'milestone' | 'level-up' | 'freeze';
 
 interface AchievementToastProps {
   visible: boolean;
@@ -36,6 +36,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
       case 'streak': return 'rgba(255, 87, 34, 0.5)'; // Orange
       case 'milestone': return 'rgba(234, 179, 8, 0.5)'; // Gold
       case 'level-up': return 'rgba(168, 85, 247, 0.5)'; // Purple
+      case 'freeze': return 'rgba(56, 189, 248, 0.5)'; // Cyan/Ice Blue
       default: return 'rgba(255, 255, 255, 0.2)';
     }
   };
