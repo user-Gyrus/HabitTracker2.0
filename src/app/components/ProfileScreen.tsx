@@ -11,6 +11,9 @@ import {
   Share2,
   MessageCircle,
   Flame,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
@@ -21,7 +24,8 @@ import {
   unsubscribeFromPushNotifications,
   isSubscribedToPushNotifications 
 } from "../../lib/pushNotifications";
-import { API_URL } from "../../config";
+import { API_URL, IS_DEVELOPMENT } from "../../config";
+import * as AdminApi from "../../lib/adminApi";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -55,6 +59,9 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   const [notificationsEnabled, setNotificationsEnabled] =
     useState<boolean>(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
+  const [devStreakCount, setDevStreakCount] = useState("");
+  const [devFreezeCount, setDevFreezeCount] = useState("");
   const { theme, setTheme } = useTheme();
   // Ensure hydration match
   // const [mounted, setMounted] = useState(false);
@@ -322,6 +329,74 @@ const handleUseFreeze = async () => {
     }
   };
 
+  /* ---------------------------
+     DEVELOPER ADMIN HANDLERS
+  ---------------------------- */
+  const handleSetStreakCount = async () => {
+    const count = parseInt(devStreakCount);
+    if (isNaN(count) || count < 0 || count > 999) {
+      toast.error("Invalid streak count (0-999)");
+      return;
+    }
+    
+    try {
+      const result = await AdminApi.setStreakCount(count);
+      toast.success(`Streak set to ${count}`);
+      // Refresh the page to update streak display
+      if (updateSession) {
+        updateSession({ streak: result.streak.streakCount, streakFreezes: result.streak.streakFreezes });
+      }
+      setDevStreakCount("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to set streak");
+    }
+  };
+
+  const handleSetFreezeCount = async () => {
+    const freezes = parseInt(devFreezeCount);
+    if (isNaN(freezes) || freezes < 0 || freezes > 10) {
+      toast.error("Invalid freeze count (0-10)");
+      return;
+    }
+    
+    try {
+      const result = await AdminApi.setStreakFreezes(freezes);
+      toast.success(`Freezes set to ${freezes}`);
+      if (updateSession) {
+        updateSession({ streak: result.streak.streakCount, streakFreezes: result.streak.streakFreezes });
+      }
+      setDevFreezeCount("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to set freezes");
+    }
+  };
+
+  const handleApplyPreset = async (preset: "test-freeze" | "test-recovery" | "test-long-streak") => {
+    try {
+      const result = await AdminApi.applyPreset(preset);
+      toast.success(`Applied preset: ${preset}`);
+      if (updateSession) {
+        updateSession({ streak: result.streak.streakCount, streakFreezes: result.streak.streakFreezes });
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to apply preset");
+    }
+  };
+
+  const handleResetStreak = async () => {
+    if (!confirm("Reset all streak data to defaults?")) return;
+    
+    try {
+      await AdminApi.resetStreakData();
+      toast.success("Streak data reset");
+      if (updateSession) {
+        updateSession({ streak: 0, streakFreezes: 0 });
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reset");
+    }
+  };
+
   const profileContent = (
     <div className={!isModal ? "min-h-screen" : ""}>
       {/* Header */}
@@ -508,6 +583,130 @@ const handleUseFreeze = async () => {
             </button>
           </div>
         </div>
+
+        {/* Developer Tools - Only shown in development */}
+        {IS_DEVELOPMENT && (
+          <div className="mb-6">
+            <h3 className="text-xs text-muted-foreground uppercase tracking-wide mb-3 px-1 font-semibold">
+              Developer Tools
+            </h3>
+            <div className="bg-yellow-500/10 border-2 border-yellow-500/30 rounded-2xl overflow-hidden shadow-sm">
+              {/* Header */}
+              <button
+                onClick={() => setShowDevTools(!showDevTools)}
+                className="w-full flex items-center justify-between p-4 hover:bg-yellow-500/5 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <Settings size={20} className="text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <div>
+                    <span className="text-foreground font-bold">Admin Controls</span>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">Dev Build Only</p>
+                  </div>
+                </div>
+                {showDevTools ? (
+                  <ChevronUp size={20} className="text-muted-foreground" />
+                ) : (
+                  <ChevronDown size={20} className="text-muted-foreground" />
+                )}
+              </button>
+
+              {/* Collapsible Content */}
+              {showDevTools && (
+                <div className="border-t border-yellow-500/30 p-4 space-y-4 bg-yellow-500/5">
+                  {/* Warning Banner */}
+                  <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-3">
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300 font-medium">
+                      ⚠️ These controls directly modify streak data for testing. Changes are immediate and persistent.
+                    </p>
+                  </div>
+
+                  {/* Streak Count */}
+                  <div>
+                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 block">
+                      Set Streak Count (Current: {streak})
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="999"
+                        value={devStreakCount}
+                        onChange={(e) => setDevStreakCount(e.target.value)}
+                        placeholder="0-999"
+                        className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button
+                        onClick={handleSetStreakCount}
+                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-lg transition-colors"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Freeze Count */}
+                  <div>
+                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 block">
+                      Set Freeze Count (Current: {streakFreezes})
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={devFreezeCount}
+                        onChange={(e) => setDevFreezeCount(e.target.value)}
+                        placeholder="0-10"
+                        className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button
+                        onClick={handleSetFreezeCount}
+                        className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-lg transition-colors"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div>
+                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2 block">
+                      Quick Test Scenarios
+                    </label>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        onClick={() => handleApplyPreset("test-freeze")}
+                        className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
+                      >
+                        Test Freeze (Streak 7, 2 Freezes)
+                      </button>
+                      <button
+                        onClick={() => handleApplyPreset("test-recovery")}
+                        className="w-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
+                      >
+                        Test Recovery (Streak 0, 1 Freeze)
+                      </button>
+                      <button
+                        onClick={() => handleApplyPreset("test-long-streak")}
+                        className="w-full px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
+                      >
+                        Test Long Streak (Streak 30, 0 Freezes)
+                      </button>
+                      <button
+                        onClick={handleResetStreak}
+                        className="w-full px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-colors text-left"
+                      >
+                        Reset All Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Account */}
         <div>
