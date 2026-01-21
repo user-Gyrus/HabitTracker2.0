@@ -13,6 +13,7 @@ self.addEventListener('push', (event) => {
       icon: data.icon || '/pwa-192x192.png',
       badge: data.badge || '/badge-96x96.png',
       vibrate: [200, 100, 200],
+      silent: false, // Explicitly request sound (respects user's device settings)
       tag: 'atomiq-notification',
       requireInteraction: false,
       data: {
