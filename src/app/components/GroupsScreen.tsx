@@ -1,42 +1,49 @@
-import { Plus, Ticket, Users, Calendar, Trophy } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Ticket, Users, Calendar, Trophy, Flame } from "lucide-react";
 import { motion } from "motion/react";
+import api from "../../lib/api";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group";
 
 interface GroupsScreenProps {
   onNavigate: (screen: Screen) => void;
+  onSelectGroup: (id: string) => void;
 }
 
-export function GroupsScreen({}: GroupsScreenProps) {
-  // Mock Data for "Your Squads"
-  const mySquads = [
-    {
-      id: "1",
-      name: "Morning Runners",
-      description: "5AM RUN PROTOCOL",
-      members: 12,
-      maxMembers: 21,
-      pot: "₹1000",
-      avatars: ["👩‍🎤", "👨‍🎤", "👩‍🚀"],
-      extraMembers: 9,
-      isActive: true,
-      progress: 0.6,
-    },
-    {
-      id: "2",
-      name: "Deep Work Club",
-      description: "4H FOCUS BLOCK",
-      members: 5,
-      maxMembers: 14,
-      rank: "#5",
-      avatars: ["👨‍💻", "👩‍💻"],
-      extraMembers: 0,
-      isActive: true,
-      progress: 0.4,
-    }
-  ];
+export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
+  const [mySquads, setMySquads] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock Data for "Discover New Squads"
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const res = await api.get("/groups");
+        const mappedGroups = res.data.map((group: any) => ({
+          id: group._id,
+          name: group.name,
+          description: group.groupCode || "SQUAD", // Use Code as description or description if exists
+          members: group.members.length,
+          maxMembers: 10, // Hardcoded max per controller
+          pot: null, // Not yet in specific DB schema
+          rank: null,
+          avatars: group.members.slice(0, 3).map((m: any) => m.displayName?.charAt(0).toUpperCase() || "?"),
+          extraMembers: Math.max(0, group.members.length - 3),
+          isActive: group.isActive,
+          progress: group.members.length / 10, // Progress based on capacity
+          groupStreak: group.groupStreak // Pass streak data
+        }));
+        setMySquads(mappedGroups);
+      } catch (error) {
+        console.error("Failed to fetch groups", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGroups();
+  }, []);
+
+  // Mock Data for "Discover New Squads" (Kept as is for now as no API exists)
   const discoverSquads = [
     {
       id: "3",
@@ -72,7 +79,10 @@ export function GroupsScreen({}: GroupsScreenProps) {
             <Ticket size={14} className="fill-primary/20" />
             JOIN CODE
           </button>
-          <button className="w-10 h-10 rounded-full border border-primary/30 flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 transition-all active:scale-90 shadow-[0_4px_10px_rgba(255,107,0,0.1)]">
+          <button 
+            onClick={() => onNavigate("create-group")}
+            className="w-10 h-10 rounded-full border border-primary/30 flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 transition-all active:scale-90 shadow-[0_4px_10px_rgba(255,107,0,0.1)]"
+          >
             <Plus size={20} />
           </button>
         </div>
@@ -83,7 +93,15 @@ export function GroupsScreen({}: GroupsScreenProps) {
         <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 ml-1">Your Squads</h2>
         
         <div className="space-y-5">
-          {mySquads.map((squad) => (
+          {loading ? (
+             <div className="text-center py-10 text-muted-foreground text-xs">Loading squads...</div>
+          ) : mySquads.length === 0 ? (
+             <div className="bg-card-bg/50 border border-card-border rounded-2xl p-6 text-center">
+                 <p className="text-muted-foreground text-sm font-medium mb-2">You haven't joined any squads yet.</p>
+                 <button className="text-primary text-xs font-bold uppercase tracking-wide">Create or Join One!</button>
+             </div>
+          ) : (
+          mySquads.map((squad) => (
             <motion.div
               key={squad.id}
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -112,28 +130,20 @@ export function GroupsScreen({}: GroupsScreenProps) {
                         </div>
                     </div>
 
-                    {squad.pot ? (
+                    {squad.groupStreak > 0 ? (
                          <div className="bg-primary/5 border border-primary/10 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm">
-                            <div className="w-4 h-4 rounded-full bg-yellow-500 shadow-sm flex items-center justify-center text-[9px] text-black font-black">$</div>
+                            <Flame size={14} className="text-orange-500 fill-orange-500" />
                             <div className="flex flex-col leading-none">
-                                <span className="text-xs text-yellow-600 font-extrabold">{squad.pot}</span>
-                                <span className="text-[8px] text-yellow-600/70 font-semibold uppercase">Pot</span>
+                                <span className="text-xs text-orange-600 font-extrabold">{squad.groupStreak}</span>
+                                <span className="text-[8px] text-orange-600/70 font-semibold uppercase">Streak</span>
                             </div>
                          </div>
-                    ) : squad.rank ? (
-                        <div className="bg-primary/5 border border-primary/10 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm">
-                             <Trophy size={14} className="text-orange-500" />
-                             <div className="flex flex-col leading-none">
-                                <span className="text-xs text-orange-600 font-extrabold">{squad.rank}</span>
-                                <span className="text-[8px] text-orange-600/70 font-semibold uppercase">Rank</span>
-                            </div>
-                        </div>
                     ) : null}
                 </div>
 
                 <div className="flex items-center justify-between relative z-10">
                      <div className="flex items-center -space-x-2 pl-2">
-                         {squad.avatars.map((avatar, i) => (
+                         {squad.avatars.map((avatar: string, i: number) => (
                              <div key={i} className="w-8 h-8 rounded-full bg-card-bg border-[3px] border-card-bg flex items-center justify-center text-sm shadow-sm ring-1 ring-black/5 z-0 hover:z-10 hover:scale-110 transition-transform cursor-pointer">
                                  {avatar}
                              </div>
@@ -145,12 +155,15 @@ export function GroupsScreen({}: GroupsScreenProps) {
                          )}
                      </div>
 
-                     <button className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-6 py-2.5 rounded-full transition-all shadow-md shadow-primary/20 active:scale-95">
+                     <button 
+                       onClick={() => onSelectGroup(squad.id)}
+                       className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-6 py-2.5 rounded-full transition-all shadow-md shadow-primary/20 active:scale-95"
+                     >
                          View
                      </button>
                 </div>
             </motion.div>
-          ))}
+          )))}
         </div>
       </div>
 

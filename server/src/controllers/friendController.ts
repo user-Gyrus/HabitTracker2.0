@@ -146,12 +146,13 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
         const streakDocs = await Streak.find({ user: { $in: friendIds } });
 
         // Map streaks to a dictionary for O(1) lookup
-        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any, lastCompletedDateIST: string } } = {};
+        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any, lastCompletedDateIST: string, streakState?: string } } = {};
         streakDocs.forEach(doc => {
             streakMap[doc.user.toString()] = {
                 streakCount: doc.streakCount,
                 lastCompletedDate: doc.lastCompletedDate,
-                lastCompletedDateIST: doc.lastCompletedDateIST || ""
+                lastCompletedDateIST: doc.lastCompletedDateIST || "",
+                streakState: doc.streakState // Add this
             };
         });
 
@@ -163,7 +164,8 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
             friendCode: f.friendCode,
             streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
             lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
-            lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null
+            lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null,
+            streakState: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakState : 'extinguished' // Add this
         }));
 
         res.json(friendsWithStreak);

@@ -193,9 +193,7 @@ export function FriendHabitsModal({ friend, isOpen, onClose }: FriendHabitsModal
                             <p className="text-xs text-muted-foreground italic mb-1">
                               "{habit.micro_identity}"
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              Goal: {habit.goal}x per day
-                            </p>
+
                           </div>
                         </div>
                       </div>

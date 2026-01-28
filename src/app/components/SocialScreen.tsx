@@ -41,7 +41,9 @@ interface Friend {
   streak: number;
   isOnline: boolean;
   friendCode: string;
+
   completedToday: boolean;
+  streakState?: 'active' | 'frozen' | 'extinguished';
 }
 
 interface Group {
@@ -146,7 +148,9 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                     streak: f.streak || 0,
                     isOnline: false, // Could implement real online status later
                     friendCode: f.friendCode,
-                    completedToday: isCompletedToday
+
+                    completedToday: isCompletedToday,
+                    streakState: f.streakState // Map from backend
                 };
             });
             setFriends(mappedFriends);
@@ -240,8 +244,11 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
 
 
 
-  // Filter friends who completed all habits today
-  const dailyGoalFriends = friends.filter(f => f.completedToday);
+  // Filter friends who completed all habits today (Full Flame / active streakState)
+  // We use streakState === 'active' because that implies 100% completion for today.
+  // Fallback to completedToday if streakState is missing (legacy/compat), though completedToday might be true for partials if not careful, 
+  // but let's trust streakState mostly.
+  const dailyGoalFriends = friends.filter(f => f.streakState === 'active');
 
   // Dummy data removed
   // const dailyGoalFriends = [
@@ -296,9 +303,9 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
     if (!userProfile?.friendCode) return;
     
     // Exact text as requested
-    const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${userProfile.friendCode} to add me as your friend!`;
-    const shareUrl = "https://atomiq.club";
+    // Exact text as requested (Unified with Profile)
+    const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends🔥\nOnce you sign up, we’ll be connected automatically. \n`;
+    const shareUrl = `https://atomiq.club/invite/${userProfile.friendCode}`;
     const shareTitle = "Join Atomiq with me";
 
     const shareData = {
@@ -333,12 +340,9 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
 
   const handleWhatsAppShare = () => {
     if (!userProfile?.friendCode) return;
-    const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${userProfile.friendCode} to add me as your friend!`;
-    const shareUrl = "https://atomiq.club";
-    // Construct text with newlines if needed, usually WhatsApp web handles space/newline encoding 
-    const fullText = `${shareText} ${shareUrl}`;
-    const encodedText = encodeURIComponent(fullText);
+    const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends 🔥\nJoin me here: https://atomiq.club/invite/${userProfile.friendCode}\nOnce you sign up, we’ll be connected automatically.`;
+    
+    const encodedText = encodeURIComponent(shareText);
     
     // Using window.open for universal link
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');

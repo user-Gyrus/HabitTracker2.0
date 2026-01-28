@@ -1,22 +1,27 @@
 import { NextFunction, Request, Response } from "express";
 import Group from "../models/Group";
 import User from "../models/User";
+import Streak from "../models/Streak";
+import Habit from "../models/Habit";
+import { generateGroupCode } from "../utils/generateGroupCode";
+import { getISTDate } from "../utils/dateUtils";
 
 // @desc    Create a new Squad
 // @route   POST /api/groups/create
 // @access  Private
 export const createGroup = async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { name, members, trackingType, duration, avatar, description } = req.body;
+        const { name, members, trackingType, duration, avatar, description, groupType, isPrivate, capacity, stakeAmount, startDate } = req.body;
 
         if (!name || !duration) {
             res.status(400).json({ message: "Name and duration are required" });
             return;
         }
 
-        if (members.length > 10) {
-            res.status(400).json({ message: "Squads can have a maximum of 10 members" });
-            return;
+        const maxCapacity = capacity || 10;
+        if (members.length > maxCapacity) {
+             res.status(400).json({ message: `Squads can have a maximum of ${maxCapacity} members` });
+             return;
         }
 
         // Add creator to members list if not already there
@@ -24,12 +29,18 @@ export const createGroup = async (req: any, res: Response, next: NextFunction): 
 
         const group = await Group.create({
             name,
+            groupCode: generateGroupCode(), // Generate unique code
             members: allMembers,
             creator: req.user._id,
             trackingType,
             duration,
             avatar: avatar || "🚀",
-            description
+            description,
+            groupType,
+            isPrivate,
+            capacity: maxCapacity,
+            stakeAmount: groupType === "staked" ? stakeAmount : undefined,
+            startDate
         });
 
         res.status(201).json(group);
@@ -38,9 +49,7 @@ export const createGroup = async (req: any, res: Response, next: NextFunction): 
     }
 };
 
-import Streak from "../models/Streak"; // Add import
-import Habit from "../models/Habit"; // Add import
-import { getISTDate } from "../utils/dateUtils";
+
 
 // @desc    Get user's squads
 // @route   GET /api/groups
@@ -125,6 +134,7 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
 
             if (group.members && Array.isArray(group.members)) {
                 group.members.forEach((member: any) => {
+                    if (!member || !member._id) return;
                     const memberId = member._id.toString();
                     member.streak = streakMap[memberId] || 0;
                     
@@ -334,6 +344,86 @@ export const addMemberToGroup = async (req: any, res: Response, next: NextFuncti
         await group.save();
 
         res.status(200).json({ message: "Member added successfully", group });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Join a Squad by Code
+// @route   POST /api/groups/join
+// @access  Private
+export const joinGroupByCode = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { code } = req.body;
+
+        if (!code) {
+             res.status(400).json({ message: "Group code is required" });
+             return;
+        }
+
+        const group = await Group.findOne({ groupCode: code.toUpperCase() });
+
+        if (!group) {
+            res.status(404).json({ message: "Invalid Squad Code" });
+            return;
+        }
+
+        if (group.members.length >= 10) {
+            res.status(400).json({ message: "Squad is full (max 10 members)" });
+            return;
+        }
+
+        if (group.members.includes(req.user._id)) {
+            res.status(400).json({ message: "You are already a member of this squad" });
+            return;
+        }
+
+        group.members.push(req.user._id);
+        await group.save();
+
+        res.status(200).json({ message: "Joined squad successfully", group });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Specific Squad Details
+// @route   GET /api/groups/:groupId
+// @access  Private
+export const getGroupById = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { groupId } = req.params;
+        const group = await Group.findById(groupId)
+            .populate("members", "displayName username friendCode") // Fetch basic member info
+            .lean();
+
+        if (!group) {
+            res.status(404).json({ message: "Squad not found" });
+            return;
+        }
+
+        // Calculate Member Streaks (Reusing logic from getUserGroups for consistency)
+        // 1. Collect all members
+        const memberIds = group.members.map((m: any) => m._id.toString());
+        
+        // 2. Fetch Streaks
+        const streakDocs = await Streak.find({ user: { $in: memberIds } });
+        const streakMap: { [key: string]: number } = {};
+        streakDocs.forEach(doc => {
+            streakMap[doc.user.toString()] = doc.streakCount;
+        });
+
+        // 3. Inject streak into members
+        if (group.members && Array.isArray(group.members)) {
+            group.members.forEach((member: any) => {
+                member.streak = streakMap[member._id.toString()] || 0;
+            });
+            
+            // Sort by streak desc
+            group.members.sort((a: any, b: any) => (b.streak || 0) - (a.streak || 0));
+        }
+
+        res.json(group);
     } catch (error) {
         next(error);
     }

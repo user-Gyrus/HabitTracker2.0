@@ -12,6 +12,9 @@ import { CreateHabitScreen } from "./components/CreateHabitScreen";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { SocialScreen } from "./components/SocialScreen";
 import { GroupsScreen } from "./components/GroupsScreen";
+import { CreateGroupScreen } from "./components/CreateGroupScreen";
+import { GroupDetailsScreen } from "./components/GroupDetailsScreen";
+import { InviteFriendScreen } from "./components/InviteFriendScreen";
 import { BottomNav } from "./components/BottomNav";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { LoginScreen } from "./components/LoginScreen";
@@ -19,7 +22,7 @@ import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import UpdateNotification from "./components/UpdateNotification";
 import { HabitsScreenSkeleton } from "./components/LoadingSkeletons";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
 
 interface Habit {
   _id: string; // Changed from id to _id for MongoDB compatibility
@@ -63,7 +66,8 @@ function AppContent() {
   const [showProfileModal, setShowProfileModal] = useState(false); // New state for global modal
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
-  const [habits, setHabits] = useState<UIHabit[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [habitsLoading, setHabitsLoading] = useState<boolean>(false);
 
   /* ---------------------------
@@ -608,7 +612,35 @@ function AppContent() {
             {currentScreen === "groups" && (
               <motion.div key="groups">
                 <GroupsScreen 
-                    onNavigate={setCurrentScreen} 
+                  onNavigate={setCurrentScreen} 
+                  onSelectGroup={(id) => {
+                    setSelectedGroupId(id);
+                    setCurrentScreen("group-details");
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {currentScreen === "create-group" && (
+              <motion.div key="create-group">
+                <CreateGroupScreen onNavigate={setCurrentScreen} />
+              </motion.div>
+            )}
+
+            {currentScreen === "group-details" && selectedGroupId && (
+              <motion.div key="group-details">
+                <GroupDetailsScreen 
+                  onNavigate={setCurrentScreen} 
+                  groupId={selectedGroupId}
+                />
+              </motion.div>
+            )}
+
+            {currentScreen === "invite-friend" && selectedGroupId && (
+              <motion.div key="invite-friend">
+                <InviteFriendScreen 
+                  onNavigate={setCurrentScreen} 
+                  groupId={selectedGroupId}
                 />
               </motion.div>
             )}
