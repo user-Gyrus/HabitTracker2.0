@@ -7,6 +7,7 @@ import {
   addHistoryDays,
   resetStreakData,
   applyPreset,
+  seedTestFriends,
 } from "../controllers/adminController";
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.post("/streak/set-state", protect, setStreakState);
 router.post("/streak/add-history", protect, addHistoryDays);
 router.post("/streak/reset", protect, resetStreakData);
 router.post("/streak/preset", protect, applyPreset);
+router.post("/seed-friends", protect, seedTestFriends);
 
 export default router;

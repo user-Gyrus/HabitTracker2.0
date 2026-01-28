@@ -157,13 +157,26 @@ export const syncStreakInternal = async (userId: string) => {
     // The streak calculation now considers emberDays as "continuation" days
     const currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays, streakDoc.emberDays);
     
-    // Check for Freeze Award (Every 7 days)
+    // Check for Freeze Award (Every 7 days) - FIXED: Only award for NEW milestones
     const oldStreak = streakDoc.streakCount;
+    
+    // Initialize awardedMilestones if it doesn't exist (for existing users)
+    if (!streakDoc.awardedMilestones) {
+        streakDoc.awardedMilestones = [];
+    }
+    
+    // Reset awarded milestones if streak broke to 0
+    if (currentStreak === 0 && oldStreak > 0) {
+        streakDoc.awardedMilestones = [];
+    }
+    
     if (currentStreak > oldStreak) {
-        const oldMilestone = Math.floor(oldStreak / 7);
-        const newMilestone = Math.floor(currentStreak / 7);
-        if (newMilestone > oldMilestone) {
-            streakDoc.streakFreezes = (streakDoc.streakFreezes || 0) + (newMilestone - oldMilestone);
+        const currentMilestone = Math.floor(currentStreak / 7);
+        
+        // Only award if this milestone hasn't been awarded yet
+        if (currentMilestone > 0 && !streakDoc.awardedMilestones.includes(currentMilestone)) {
+            streakDoc.streakFreezes = (streakDoc.streakFreezes || 0) + 1;
+            streakDoc.awardedMilestones.push(currentMilestone);
         }
     }
 

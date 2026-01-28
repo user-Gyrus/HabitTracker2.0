@@ -5,6 +5,7 @@ import * as Switch from "@radix-ui/react-switch";
 import { toast } from "sonner";
 import api from "../../lib/api";
 import { FriendsListSkeleton, GroupsCarouselSkeleton } from "./LoadingSkeletons";
+import { FriendHabitsModal } from "./FriendHabitsModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [friendsLoading, setFriendsLoading] = useState<boolean>(true);
   const [groupsLoading, setGroupsLoading] = useState<boolean>(true);
   const [searchingFriend, setSearchingFriend] = useState<boolean>(false);
+  const [selectedFriendForHabits, setSelectedFriendForHabits] = useState<Friend | null>(null);
+  const [showFriendHabitsModal, setShowFriendHabitsModal] = useState(false);
 
   // Confirmation Dialog State
   const [confirmation, setConfirmation] = useState<{
@@ -494,7 +497,11 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
               friends.map((friend) => (
                 <div
                   key={friend.id}
-                  className="bg-card-bg rounded-2xl p-4 flex items-center justify-between border border-card-border hover:border-primary/30 transition-colors shadow-sm"
+                  className="bg-card-bg rounded-2xl p-4 flex items-center justify-between border border-card-border hover:border-primary/30 transition-colors shadow-sm cursor-pointer active:scale-[0.98]"
+                  onClick={() => {
+                    setSelectedFriendForHabits(friend);
+                    setShowFriendHabitsModal(true);
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -517,7 +524,10 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                   </div>
                   <div className="relative">
                     <button 
-                      onClick={() => setActiveMenuId(activeMenuId === friend.id ? null : friend.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuId(activeMenuId === friend.id ? null : friend.id);
+                      }}
                       className="p-2 hover:bg-secondary rounded-lg transition-colors"
                     >
                       <MoreVertical size={18} className="text-muted-foreground" />
@@ -525,7 +535,8 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                     {activeMenuId === friend.id && (
                       <div className="absolute right-0 top-full mt-2 w-48 bg-secondary border border-border rounded-xl shadow-2xl z-20 overflow-hidden ring-1 ring-black/5">
                           <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                  e.stopPropagation();
                                   setFriendToRemove(friend);
                                   setActiveMenuId(null);
                               }}
@@ -1577,6 +1588,16 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+      {/* Friend Habits Modal */}
+      <FriendHabitsModal
+        friend={selectedFriendForHabits}
+        isOpen={showFriendHabitsModal}
+        onClose={() => {
+          setShowFriendHabitsModal(false);
+          setSelectedFriendForHabits(null);
+        }}
+      />
     </>
   );
 }

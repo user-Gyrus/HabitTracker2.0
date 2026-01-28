@@ -171,3 +171,90 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
         next(error);
     }
 };
+
+// @desc    Get a friend's public habits for a specific date
+// @route   GET /api/friends/:friendId/habits?date=YYYY-MM-DD
+// @access  Private
+export const getFriendHabits = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { friendId } = req.params;
+        const requestedDate = req.query.date as string;
+
+        // Verify the users are friends
+        const currentUser = await User.findById(req.user._id);
+        if (!currentUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // Check if they are friends
+        if (!currentUser.friends.includes(friendId)) {
+            res.status(403).json({ message: "You can only view habits of your friends" });
+            return;
+        }
+
+        // Import date utilities and Habit model
+        const { getISTDate } = require("../utils/dateUtils");
+        const Habit = require("../models/Habit").default;
+
+        // Use provided date or default to today (IST)
+        const targetDate = requestedDate || getISTDate();
+
+        // Fetch all habits for the friend
+        const allHabits = await Habit.find({ user: friendId });
+
+        // Filter for public habits only
+        const publicHabits = allHabits.filter((h: any) => h.visibility === 'public');
+
+        // Get target date info for filtering
+        const targetDateObj = new Date(targetDate);
+        const dayOfWeek = targetDateObj.getDay(); // 0-6
+        const todayNum = dayOfWeek === 0 ? 7 : dayOfWeek; // Convert to 1-7 format
+
+        // Filter habits that are active for the target date
+        const activeHabitsForDate = publicHabits.filter((h: any) => {
+            // A. Duration Check - only show habits within their duration period
+            if (h.duration) {
+                const created = new Date(h.createdAt);
+                const createdStr = created.toISOString().split('T')[0];
+                const createdDateOnly = new Date(createdStr);
+                const targetDateOnly = new Date(targetDate);
+                
+                const diffTime = targetDateOnly.getTime() - createdDateOnly.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays >= h.duration) return false;
+            }
+
+            // B. Active Day Check - only show habits scheduled for this day
+            if (h.activeDays && !h.activeDays.includes(todayNum)) return false;
+
+            return true;
+        });
+
+        // Map to frontend-friendly format with completion status
+        const habitsWithCompletion = activeHabitsForDate.map((h: any) => {
+            // Use the actual completion count from the habit's completions array
+            const completionCount = h.completions ? h.completions.length : 0;
+            
+            return {
+                id: h._id,
+                name: h.name,
+                micro_identity: h.microIdentity,
+                goal: h.goal,
+                type: h.type,
+                completed_today: h.completions && h.completions.includes(targetDate),
+                duration: h.duration,
+                current_day: completionCount
+            };
+        });
+
+        res.json({
+            date: targetDate,
+            habits: habitsWithCompletion
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
