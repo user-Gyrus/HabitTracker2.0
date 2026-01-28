@@ -1,0 +1,32 @@
+name: Deploy Node App (DEV) to EC2
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/HabitTracker2.0
+
+            git fetch origin
+            git checkout dev
+            git reset --hard origin/dev
+            cd server
+            npm install
+            pm2 reload atomiq-backend --update-env
