@@ -1,9 +1,9 @@
-name: Deploy Node App (DEV) to EC2
+name: Deploy Node App (MAIN) to EC2
 
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   deploy:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -25,8 +25,9 @@ jobs:
             cd ~/HabitTracker2.0
 
             git fetch origin
-            git checkout dev
-            git reset --hard origin/dev
+            git checkout main
+            git reset --hard origin/main
+
             cd server
             npm install
             pm2 reload atomiq-backend --update-env
