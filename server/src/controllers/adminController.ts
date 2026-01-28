@@ -198,6 +198,7 @@ export const resetStreakData = async (req: any, res: Response): Promise<void> =>
       // Reset all fields to defaults
       streak.streakCount = 0;
       streak.streakFreezes = 0;
+      streak.awardedMilestones = []; // Reset awarded milestones
       streak.streakState = 'extinguished';
       streak.history = [];
       streak.emberDays = [];
@@ -256,6 +257,7 @@ export const applyPreset = async (req: any, res: Response): Promise<void> => {
         updates = {
           streakCount: 7,
           streakFreezes: 2,
+          awardedMilestones: [1], // Awarded milestone 1 (day 7)
           streakState: 'active',
           history: historyDates,
           lastCompletedDateIST: historyDates[historyDates.length - 1],
@@ -270,6 +272,7 @@ export const applyPreset = async (req: any, res: Response): Promise<void> => {
         updates = {
           streakCount: 0, // Broken because of the gap
           streakFreezes: 1,
+          awardedMilestones: [], // Reset because streak broke
           streakState: 'extinguished',
           history: historyDates,
           lastCompletedDateIST: historyDates[historyDates.length - 1],
@@ -285,6 +288,7 @@ export const applyPreset = async (req: any, res: Response): Promise<void> => {
         updates = {
           streakCount: 30,
           streakFreezes: 0,
+          awardedMilestones: [1, 2, 3, 4], // Awarded milestones for days 7, 14, 21, 28
           streakState: 'active',
           history: historyDates,
           lastCompletedDateIST: historyDates[historyDates.length - 1],

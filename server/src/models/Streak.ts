@@ -8,6 +8,7 @@ export interface IStreak extends Document {
   lastCompletedDateIST?: string; // YYYY-MM-DD
   history: string[]; // Array of YYYY-MM-DD (100% completion days)
   streakFreezes: number;
+  awardedMilestones: number[]; // Track which milestones (1, 2, 3...) have been awarded to prevent re-awarding
   frozenDays: string[]; // Days recovered using streak freeze feature
   streakState: 'active' | 'frozen' | 'extinguished'; // Current streak status
   emberDays: string[]; // Array of YYYY-MM-DD (partial completion days)
@@ -45,6 +46,10 @@ const StreakSchema = new Schema<IStreak>(
     streakFreezes: {
       type: Number,
       default: 0,
+    },
+    awardedMilestones: {
+      type: [Number], // Array of milestone numbers (1, 2, 3...) that have been awarded
+      default: [],
     },
     frozenDays: {
       type: [String], // Dates where freeze was used
