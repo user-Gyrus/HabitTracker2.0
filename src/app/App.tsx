@@ -11,6 +11,7 @@ import { HabitsScreen } from "./components/HabitsScreen";
 import { CreateHabitScreen } from "./components/CreateHabitScreen";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { SocialScreen } from "./components/SocialScreen";
+import { GroupsScreen } from "./components/GroupsScreen";
 import { BottomNav } from "./components/BottomNav";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { LoginScreen } from "./components/LoginScreen";
@@ -18,7 +19,7 @@ import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import UpdateNotification from "./components/UpdateNotification";
 import { HabitsScreenSkeleton } from "./components/LoadingSkeletons";
 
-type Screen = "habits" | "create" | "profile" | "social";
+type Screen = "habits" | "create" | "profile" | "social" | "groups";
 
 interface Habit {
   _id: string; // Changed from id to _id for MongoDB compatibility
@@ -600,6 +601,14 @@ function AppContent() {
                     updateSession={updateSession}
                     streak={session?.streak || 0}
                     streakFreezes={session?.streakFreezes || 0}
+                />
+              </motion.div>
+            )}
+
+            {currentScreen === "groups" && (
+              <motion.div key="groups">
+                <GroupsScreen 
+                    onNavigate={setCurrentScreen} 
                 />
               </motion.div>
             )}
