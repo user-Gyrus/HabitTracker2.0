@@ -215,17 +215,11 @@ export const getFriendHabits = async (req: any, res: Response, next: NextFunctio
 
         // Filter habits that are active for the target date
         const activeHabitsForDate = publicHabits.filter((h: any) => {
-            // A. Duration Check - only show habits within their duration period
+            // A. Duration Check - Based on COMPLETIONS, not calendar days
             if (h.duration) {
-                const created = new Date(h.createdAt);
-                const createdStr = created.toISOString().split('T')[0];
-                const createdDateOnly = new Date(createdStr);
-                const targetDateOnly = new Date(targetDate);
-                
-                const diffTime = targetDateOnly.getTime() - createdDateOnly.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays >= h.duration) return false;
+                const completionCount = h.completions ? h.completions.length : 0;
+                // If habit has been completed >= duration times, it's finished
+                if (completionCount >= h.duration) return false;
             }
 
             // B. Active Day Check - only show habits scheduled for this day

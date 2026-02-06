@@ -21,6 +21,7 @@ export interface Habit {
   completed_today: boolean;
   duration: number; // Added
   completionsCount: number; // Added
+  associatedGroup?: string; // Squad link
 }
 
 interface Quote {
@@ -59,6 +60,7 @@ interface HabitsScreenProps {
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
   streak?: number;
   streakHistory?: string[];
+  frozenDays?: string[];
   streakState?: 'active' | 'frozen' | 'extinguished';
   completionPercentage?: number;
 }
@@ -72,6 +74,7 @@ export function HabitsScreen({
   onNavigate,
   streak = 0,
   streakHistory = [],
+  frozenDays = [],
   streakState = 'extinguished',
   completionPercentage = 0,
 }: HabitsScreenProps) {
@@ -187,6 +190,11 @@ export function HabitsScreen({
                     streakHistory.forEach(dateStr => completedDates.add(dateStr));
                 }
 
+                const frozenDates = new Set<string>();
+                if (frozenDays && frozenDays.length > 0) {
+                    frozenDays.forEach(dateStr => frozenDates.add(dateStr));
+                }
+
                 return Array.from({ length: 7 }).map((_, i) => {
                     const date = new Date(startOfWeek);
                     date.setDate(startOfWeek.getDate() + i);
@@ -204,6 +212,9 @@ export function HabitsScreen({
                     
                     // Logic for Green Checkmark (All Done)
                     let isStreakDay = completedDates.has(dateStr);
+                    
+                    // Check if this is a frozen day
+                    const isFrozenDay = frozenDates.has(dateStr);
                     
                     // Optimistic check for Today
                     if (isToday) {
@@ -229,11 +240,18 @@ export function HabitsScreen({
                                 {dayNum}
 
                                 {/* Green Tickmark for All Done */}
-                                {isStreakDay && (
+                                {isStreakDay && !isFrozenDay && (
                                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-card-bg flex items-center justify-center shadow-sm z-10">
                                         <svg width="8" height="6" viewBox="0 0 8 6" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                         </svg>
+                                     </div>
+                                )}
+
+                                {/* Frozen Icon (Snowflake) for Streak Freeze Days */}
+                                {isFrozenDay && (
+                                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full border-2 border-card-bg flex items-center justify-center shadow-sm z-10">
+                                        <span className="text-[10px]">❄️</span>
                                      </div>
                                 )}
 
@@ -281,11 +299,13 @@ export function HabitsScreen({
               key={habit.id}
               habit={{
                 id: habit.id,
+                _id: habit.id,
                 name: habit.name,
                 microIdentity: habit.micro_identity ?? "",
                 progress: habit.completionsCount, // Now using completions count
                 goal: habit.duration, // Now using duration as the denominator
                 completed: habit.completed_today,
+                associatedGroup: habit.associatedGroup, // Pass squad link
               }}
               onComplete={() => onCompleteHabit(habit.id)}
               onUndo={() => onUndoHabit(habit.id)}

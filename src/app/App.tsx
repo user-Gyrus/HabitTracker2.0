@@ -46,6 +46,7 @@ interface Habit {
   completions: string[];
   visibility?: "public" | "private";
   duration: number;
+  associatedGroup?: string; // Squad link
 
   // fields that are used for frontend convenience
   id: string;
@@ -74,6 +75,17 @@ function AppContent() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitsLoading, setHabitsLoading] = useState<boolean>(false);
+  const [creationDefaults, setCreationDefaults] = useState<any>(null); // New state to pass context (e.g. squadId)
+
+  // Navigation Helper
+  const handleNavigate = (screen: Screen, data?: any) => {
+      if (screen === 'create' && data) {
+          setCreationDefaults(data);
+      } else {
+          setCreationDefaults(null);
+      }
+      setCurrentScreen(screen);
+  };
 
   /* ---------------------------
      INVITE CODE HANDLING
@@ -276,10 +288,9 @@ function AppContent() {
 
     // Check for streak freeze earned
     if (
-      session?.streakFreezes !== undefined &&
       updatedUser.streakFreezes !== undefined
     ) {
-      const oldFreezes = session.streakFreezes;
+      const oldFreezes = session?.streakFreezes || 0;
       const newFreezes = updatedUser.streakFreezes;
 
       if (newFreezes > oldFreezes) {
@@ -321,29 +332,12 @@ function AppContent() {
         const currentDayIndex = now.getDay(); // 0 (Sun) to 6 (Sat)
         const todayNum = currentDayIndex === 0 ? 7 : currentDayIndex;
 
-        const todaysHabits = allHabits.filter((h) => {
-          // 1. Duration Check
-          if (h.createdAt && h.duration) {
-            const startDate = new Date(h.createdAt);
-            // Reset time to ensure day-based calculation
-            const startDay = new Date(
-              startDate.getFullYear(),
-              startDate.getMonth(),
-              startDate.getDate(),
-            );
-            const currentDay = new Date(
-              now.getFullYear(),
-              now.getMonth(),
-              now.getDate(),
-            );
-
-            const diffTime = currentDay.getTime() - startDay.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-            // If current day is beyond duration (e.g. Day 21 on a 21-day habit), hide it
-            // Assuming duration = days active. Day 0 to Day 20 = 21 days.
-            // So if diffDays >= duration, it's expired.
-            if (diffDays >= h.duration) return false;
+                const todaysHabits = allHabits.filter((h) => {
+          // 1. Duration Check - Based on COMPLETIONS, not calendar days
+          if (h.duration) {
+            const completionCount = h.completions ? h.completions.length : 0;
+            // If habit has been completed >= duration times, it's finished
+            if (completionCount >= h.duration) return false;
           }
 
           // 2. Active Day Check
@@ -415,9 +409,13 @@ function AppContent() {
   const handleCreateOrUpdateHabit = async (habitData: any): Promise<void> => {
     try {
       let res;
-      if (editingHabit) {
+      // Check if we're editing based on _id presence OR editingHabit state
+      const isEditing = habitData._id || editingHabit;
+      const habitId = habitData._id || editingHabit?._id;
+      
+      if (isEditing && habitId) {
         // UPDATE
-        res = await api.put(`/habits/${editingHabit._id}`, habitData);
+        res = await api.put(`/habits/${habitId}`, habitData);
         toast.success("Habit updated successfully!");
       } else {
         // CREATE
@@ -437,16 +435,18 @@ function AppContent() {
           lastCompletedDate: data.lastCompletedDate,
           streakState: data.streakState,
           emberDays: data.emberDays,
+          frozenDays: data.frozenDays,
           completionPercentage: data.completionPercentage,
         };
         updateSession(updatedSession);
       }
 
       setEditingHabit(null); // Clear edit mode
+      setCreationDefaults(null); // Clear creation defaults
       setCurrentScreen("habits");
     } catch (err) {
       toast.error(
-        editingHabit ? "Error updating habit" : "Error creating habit",
+        habitData._id || editingHabit ? "Error updating habit" : "Error creating habit",
       );
       console.error("Error saving habit", err);
     }
@@ -500,6 +500,7 @@ function AppContent() {
               data.lastCompletedDate || session.lastCompletedDate,
             streakState: data.streakState,
             emberDays: data.emberDays,
+            frozenDays: data.frozenDays,
             completionPercentage: data.completionPercentage,
           };
           updateSession(updatedSession);
@@ -562,6 +563,7 @@ function AppContent() {
               data.lastCompletedDate || session.lastCompletedDate,
             streakState: data.streakState,
             emberDays: data.emberDays,
+            frozenDays: data.frozenDays,
             completionPercentage: data.completionPercentage,
           };
           updateSession(updatedSession);
@@ -594,6 +596,7 @@ function AppContent() {
           lastCompletedDate: data.lastCompletedDate,
           streakState: data.streakState,
           emberDays: data.emberDays,
+          frozenDays: data.frozenDays,
           completionPercentage: data.completionPercentage,
         });
       }
@@ -673,6 +676,7 @@ function AppContent() {
                     onNavigate={setCurrentScreen}
                     streak={session?.streak || 0}
                     streakHistory={session?.streakHistory || []}
+                    frozenDays={session?.frozenDays || []}
                     streakState={session?.streakState || "extinguished"}
                     completionPercentage={session?.completionPercentage || 0}
                   />
@@ -686,9 +690,10 @@ function AppContent() {
                   onBack={() => {
                     setCurrentScreen("habits");
                     setEditingHabit(null);
+                    setCreationDefaults(null);
                   }}
                   onCreate={handleCreateOrUpdateHabit}
-                  initialData={editingHabit}
+                  initialData={editingHabit || creationDefaults}
                 />
               </motion.div>
             )}
@@ -725,7 +730,7 @@ function AppContent() {
             {currentScreen === "group-details" && selectedGroupId && (
               <motion.div key="group-details">
                 <GroupDetailsScreen
-                  onNavigate={setCurrentScreen}
+                  onNavigate={handleNavigate}
                   groupId={selectedGroupId}
                 />
               </motion.div>

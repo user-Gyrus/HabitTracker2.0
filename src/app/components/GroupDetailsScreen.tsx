@@ -1,13 +1,15 @@
+// ... (imports remain the same)
 import { useState, useEffect } from "react";
-import { ArrowLeft, MoreHorizontal, User, Trophy, Flame, Play, Clock, ChevronRight, UserPlus, LogOut, X, Copy, Share2, MessageCircle, Link as LinkIcon, Trash2, Users, Check } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, User, Trophy, Flame, Play, Clock, ChevronRight, UserPlus, LogOut, X, Copy, Share2, MessageCircle, Link as LinkIcon, Trash2, Users, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import api from "../../lib/api";
 
+// ... (types and interfaces remain the same)
 type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
 
 interface GroupDetailsScreenProps {
-  onNavigate: (screen: Screen) => void;
+  onNavigate: (screen: Screen, data?: any) => void; // Updated to accept optional data
   groupId: string;
 }
 
@@ -20,12 +22,18 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
   const [showMenu, setShowMenu] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  
+  // Habit Linking State
+  const [showHabitSelector, setShowHabitSelector] = useState(false);
+  const [userHabits, setUserHabits] = useState<any[]>([]);
+  const [linkingHabit, setLinkingHabit] = useState(false);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard!");
   };
 
+  // ... (Share functions remain the same)
   const handleNativeShare = async () => {
      if (!group?.groupCode) return;
      
@@ -67,6 +75,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
 
+  // ... (Leave/Delete functions remain the same)
   const handleLeaveGroup = async () => {
     try {
       await api.post('/groups/leave', { groupId });
@@ -91,27 +100,79 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
     }
   };
 
+  const fetchGroupDetails = async () => {
+      try {
+          const res = await api.get(`/groups/${groupId}`);
+          console.log("📦 Group Details Response:", res.data);
+          setGroup(res.data);
+      } catch (error) {
+          console.error("Failed to fetch group details", error);
+      } finally {
+          setLoading(false);
+      }
+  };
+
   useEffect(() => {
-    const fetchGroupDetails = async () => {
-        try {
-            const res = await api.get(`/groups/${groupId}`);
-            console.log("📦 Group Details Response:", res.data);
-            console.log("🔑 Group Code:", res.data.groupCode);
-            console.log("👑 Is Creator:", res.data.isCreator);
-            setGroup(res.data);
-            
-            // Alert if groupCode is missing
-            if (!res.data.groupCode) {
-                console.warn("⚠️ Group is missing groupCode field!");
-            }
-        } catch (error) {
-            console.error("Failed to fetch group details", error);
-        } finally {
-            setLoading(false);
-        }
-    };
     fetchGroupDetails();
   }, [groupId]);
+
+  const handleOpenHabitSelector = async () => {
+      setShowHabitSelector(true);
+      try {
+          // Fetch user habits if not already loaded (could optimize context later)
+          const res = await api.get('/habits');
+          setUserHabits(res.data);
+      } catch (error) {
+          console.error("Failed to fetch habits", error);
+          toast.error("Failed to load your habits");
+      }
+  };
+
+
+  const handleCreateSquadHabit = async () => {
+     // If habit already linked, EDIT it instead of creating new
+     if (group.myLinkedHabit) {
+         try {
+             // Fetch full habit details for editing
+             const res = await api.get(`/habits`);
+             const linkedHabit = res.data.find((h: any) => h._id === group.myLinkedHabit._id);
+             
+             if (linkedHabit) {
+                 onNavigate('create', linkedHabit); // Pass existing habit for editing
+             } else {
+                 toast.error("Linked habit not found");
+             }
+         } catch (error) {
+             console.error("Failed to fetch habit for editing", error);
+             toast.error("Failed to load habit");
+         }
+     } else {
+         // No linked habit → Create new with squad context
+         onNavigate('create', {
+             associatedGroup: group._id,
+             duration: group.duration,
+             name: `${group.name} Habit`, 
+         });
+     }
+  };
+
+  const handleLinkHabit = async (habitId: string) => {
+      setLinkingHabit(true);
+      try {
+          await api.post('/groups/link-habit', {
+              groupId,
+              habitId
+          });
+          toast.success("Habit linked successfully!");
+          setShowHabitSelector(false);
+          fetchGroupDetails(); // Refresh to show new linked habit
+      } catch (error: any) {
+          console.error("Failed to link habit", error);
+          toast.error(error.response?.data?.message || "Failed to link habit");
+      } finally {
+          setLinkingHabit(false);
+      }
+  };
 
   if (loading) {
       return <div className="min-h-screen flex items-center justify-center text-muted-foreground text-xs">Loading squad details...</div>;
@@ -155,8 +216,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
             >
                 <MoreHorizontal size={20} />
             </button>
-            
-            {/* Dropdown Menu */}
+            {/* Same Menu Logic as before */}
             <AnimatePresence>
                 {showMenu && (
                     <motion.div 
@@ -207,12 +267,12 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
         </div>
         
         {/* Backdrop for closing menu */}
-        {showMenu && (
+         {showMenu && (
             <div 
                 className="fixed inset-0 z-40 bg-transparent" 
                 onClick={() => setShowMenu(false)}
             />
-        )}
+         )}
       </div>
 
       {/* Hero Section */}
@@ -241,13 +301,13 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
           </div>
       </div>
 
-      {/* Pending Requests (Mock for UI as requested) */}
+      {/* Pending Requests */}
       <div className="mb-8">
           <div className="flex items-center justify-between mb-3 px-1">
              <h2 className="text-[10px] font-bold text-foreground">Pending Requests</h2>
              <span className="bg-orange-500/20 text-orange-500 text-[9px] font-bold px-2 py-0.5 rounded-full">1 NEW</span>
           </div>
-
+          {/* Mock content remains */}
           <div className="bg-card-bg border border-card-border rounded-2xl p-4">
               <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm border-2 border-card-bg relative">
@@ -271,18 +331,55 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       {/* Your Squad Habit */}
       <div className="mb-8">
           <h2 className="text-[10px] font-bold text-foreground mb-3 px-1">Your Squad Habit</h2>
-          <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center justify-between group hover:border-orange-500/30 transition-all">
-               <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-                       <Play size={18} fill="currentColor" />
+          <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center gap-4 group hover:border-orange-500/30 transition-all relative">
+               {group.myLinkedHabit ? (
+                   <>
+                       {/* Circular Progress */}
+                       <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
+                            <svg className="w-full h-full -rotate-90">
+                                <circle 
+                                    cx="28" cy="28" r="22" 
+                                    stroke="currentColor" strokeWidth="4" fill="transparent" 
+                                    className="text-muted/20" 
+                                />
+                                <circle 
+                                    cx="28" cy="28" r="22" 
+                                    stroke="currentColor" strokeWidth="4" fill="transparent" 
+                                    className="text-orange-500 transition-all duration-1000 ease-out" 
+                                    strokeDasharray={138} 
+                                    strokeDashoffset={138 - (138 * ((group.myLinkedHabit.progress || 0) / (group.myLinkedHabit.duration || 21)))} 
+                                    strokeLinecap="round" 
+                                />
+                            </svg>
+                            <span className="absolute text-[10px] font-bold text-foreground">
+                                <span className="text-orange-500">{group.myLinkedHabit.progress || 0}</span>
+                                <span className="text-muted-foreground">/{group.myLinkedHabit.duration || 21}</span>
+                            </span>
+                       </div>
+
+                       {/* Habit Info */}
+                       <div className="flex-1 min-w-0">
+                           <h3 className="font-bold text-sm text-foreground truncate">{group.myLinkedHabit.name}</h3>
+                           <p className="text-[10px] text-orange-500 font-bold uppercase tracking-wider">{group.myLinkedHabit.microIdentity || "Linked"}</p>
+                       </div>
+                   </>
+               ) : (
+                   <div className="flex items-center gap-4 flex-1">
+                        <div className="w-14 h-14 rounded-full bg-muted/20 flex items-center justify-center text-muted-foreground">
+                            <Plus size={20} />
+                        </div>
+                        <div>
+                             <h3 className="font-bold text-sm text-foreground">No habit linked</h3>
+                             <p className="text-[10px] text-muted-foreground">Link a habit to this squad to track progress</p>
+                        </div>
                    </div>
-                   <div>
-                       <h3 className="font-bold text-sm text-foreground">Running</h3>
-                       <p className="text-[10px] text-orange-500 font-bold uppercase tracking-wider">Athlete</p>
-                   </div>
-               </div>
-               <button className="text-[10px] font-bold text-muted-foreground hover:text-foreground border border-card-border bg-card-bg hover:bg-muted px-3 py-1.5 rounded-lg transition-all uppercase">
-                   Change
+               )}
+               
+               <button 
+                 onClick={handleCreateSquadHabit}
+                 className="text-[10px] font-bold text-muted-foreground hover:text-foreground border border-card-border bg-card-bg hover:bg-muted px-3 py-1.5 rounded-lg transition-all uppercase whitespace-nowrap"
+               >
+                   {group.myLinkedHabit ? "Change" : "Connect Habit"}
                </button>
           </div>
       </div>
@@ -304,11 +401,12 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                            <div>
                                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
                                    {member.displayName}
-                                   {/* Mock Badges */}
-                                   {index === 0 && <span className="text-[8px] bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground lowercase">marathon trainer</span>}
+                                   {/* If linked habit exists, show it as a badge? Or just keep mock badges for now? Let's show linked habit info if available */}
+                                   {member.linkedHabit && <span className="text-[8px] bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground lowercase">{member.linkedHabit.name}</span>}
                                </h3>
                                <p className="text-[10px] text-muted-foreground">
-                                   {index === 1 ? "On fire! 🔥" : index === 2 ? "Trailing behind" : "Consistent"}
+                                   {/* Revert to simple text if no specific logic */}
+                                   {index < 3 ? "Leading the pack" : "Staying consistent"}
                                </p>
                            </div>
                        </div>
@@ -317,10 +415,6 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                            <div className="text-sm font-black text-foreground">{member.streak || 0}d</div>
                            <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Streak</div>
                        </div>
-
-                       {/* Highlight Current User Row style if matched (Mock logic) */}
-                       {/* In a real app check member._id === user._id */}
-                       {index === 1 && <div className="absolute inset-0 bg-orange-500/5 border-l-2 border-orange-500 rounded-r-2xl pointer-events-none" />}
                   </div>
               ))}
           </div>
@@ -337,6 +431,59 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
               Invite Friend
           </button>
       </div>
+
+      {/* HABIT SELECTOR MODAL */}
+      {showHabitSelector && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center px-5">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowHabitSelector(false)} />
+              
+              <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+                   <button 
+                      onClick={() => setShowHabitSelector(false)}
+                      className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+                   >
+                      <X size={20} />
+                   </button>
+
+                   <div className="text-center mb-4">
+                       <h3 className="text-xl font-bold text-foreground">Select Habit</h3>
+                       <p className="text-xs text-muted-foreground">Choose a habit to link to {group.name}</p>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                       {userHabits.length === 0 ? (
+                           <div className="text-center py-8 text-muted-foreground">
+                               <p className="text-sm">No habits found.</p>
+                               <button onClick={() => { setShowHabitSelector(false); onNavigate('create'); }} className="text-primary text-xs font-bold mt-2 underline">Create one now</button>
+                           </div>
+                       ) : (
+                           userHabits.map((habit) => (
+                               <button
+                                  key={habit._id}
+                                  onClick={() => handleLinkHabit(habit._id)}
+                                  disabled={linkingHabit}
+                                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/60 border border-transparent hover:border-primary/30 transition-all text-left"
+                               >
+                                   <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center text-xl">
+                                       {/* Use first char or generic icon */}
+                                       {habit.emoji || "🔥"} 
+                                   </div>
+                                   <div>
+                                       <h4 className="font-bold text-sm text-foreground">{habit.name}</h4>
+                                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{habit.microIdentity || "Habit"}</p>
+                                   </div>
+                                   {group.myLinkedHabit?._id === habit._id && (
+                                       <div className="ml-auto text-primary">
+                                            <Check size={16} />
+                                       </div>
+                                   )}
+                               </button>
+                           ))
+                       )}
+                   </div>
+              </div>
+          </div>
+      )}
 
       {/* INVITE SQUAD MODAL */}
       {showInviteModal && group && (
@@ -396,13 +543,15 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                       onClick={handleWhatsAppShare}
                       className="flex-1 bg-[#25D366] hover:bg-[#25D366]/90 text-white font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                     >
+                        <MessageCircle size={18} /> 
+                        WhatsApp
                     </button>
                  </div>
              </div>
           </div>
        )}
 
-      {/* TRANSFER OWNERSHIP MODAL */}
+      {/* TRANSFER OWNERSHIP MODAL and OTHERS (Same as original) */}
       {showTransferModal && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center px-5">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowTransferModal(false)} />
@@ -477,8 +626,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                                   setShowTransferModal(false);
                                   setSelectedMemberId(null);
                                   // Refresh group data
-                                  const res = await api.get(`/groups/${groupId}`);
-                                  setGroup(res.data);
+                                  fetchGroupDetails();
                               } catch (err: any) {
                                   toast.error(err.response?.data?.message || 'Failed to transfer ownership');
                               }
@@ -493,7 +641,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
           </div>
       )}
 
-      {/* LEAVE GROUP CONFIRMATION DIALOG */}
+      {/* LEAVE GROUP CONFIRMATION DIALOG (Same as original) */}
       {showLeaveConfirm && (
         <div 
           className="fixed inset-0 z-[70] flex items-center justify-center px-5"
@@ -533,7 +681,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
         </div>
       )}
 
-      {/* DELETE GROUP CONFIRMATION DIALOG */}
+      {/* DELETE GROUP CONFIRMATION DIALOG (Same as original) */}
       {showDeleteConfirm && (
         <div 
           className="fixed inset-0 z-[70] flex items-center justify-center px-5"

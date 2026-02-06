@@ -11,6 +11,7 @@ export interface IHabit extends Document {
   duration: number;
   // Progress/Streak tracking could be more complex, but starting simple
   completions: string[]; // Array of ISO date strings YYYY-MM-DD
+  associatedGroup?: Schema.Types.ObjectId; // Link to a squad if created for one
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +60,10 @@ const HabitSchema = new Schema<IHabit>(
       type: [String],
       default: [],
     },
+    associatedGroup: {
+      type: Schema.Types.ObjectId,
+      ref: "Group"
+    }
   },
   { timestamps: true }
 );

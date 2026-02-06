@@ -246,6 +246,10 @@ export const linkHabitToGroup = async (req: any, res: Response, next: NextFuncti
             return;
         }
 
+        // SYNC DURATION: Update habit duration to match squad duration
+        habit.duration = group.duration;
+        await habit.save();
+
         // Initialize memberHabits if missing
         if (!group.memberHabits) {
             group.memberHabits = [];
@@ -260,7 +264,7 @@ export const linkHabitToGroup = async (req: any, res: Response, next: NextFuncti
         }
 
         await group.save();
-        res.status(200).json({ message: "Habit linked successfully" });
+        res.status(200).json({ message: "Habit linked and synced successfully" });
 
     } catch (error) {
         next(error);
@@ -451,6 +455,12 @@ export const joinGroupByCode = async (req: any, res: Response, next: NextFunctio
 // @desc    Get Specific Squad Details
 // @route   GET /api/groups/:groupId
 // @access  Private
+// ... (imports)
+
+// ... (getGroupById)
+// @desc    Get Specific Squad Details
+// @route   GET /api/groups/:groupId
+// @access  Private
 export const getGroupById = async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { groupId } = req.params;
@@ -463,10 +473,23 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
             return;
         }
 
-        // Calculate Member Streaks (Reusing logic from getUserGroups for consistency)
-        // 1. Collect all members
-        const memberIds = group.members.map((m: any) => m._id.toString());
+        // --- ENRICHMENT LOGIC (Same as getUserGroups) ---
         
+        // 1. Collect all members and linked habits
+        const memberIds = group.members.map((m: any) => m._id.toString());
+        const linkedHabitIds = new Set<string>();
+        
+        const groupMemberHabits: { [userId: string]: string } = {}; // userId -> habitId
+
+        if (group.memberHabits && Array.isArray(group.memberHabits)) {
+            group.memberHabits.forEach((mh: any) => {
+                if (mh.habit) {
+                    linkedHabitIds.add(mh.habit.toString());
+                    groupMemberHabits[mh.user.toString()] = mh.habit.toString();
+                }
+            });
+        }
+
         // 2. Fetch Streaks
         const streakDocs = await Streak.find({ user: { $in: memberIds } });
         const streakMap: { [key: string]: number } = {};
@@ -474,10 +497,34 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
             streakMap[doc.user.toString()] = doc.streakCount;
         });
 
-        // 3. Inject streak into members
+        // 3. Fetch Habits details
+        const habitDocs = await Habit.find({ _id: { $in: Array.from(linkedHabitIds) } });
+        const habitMap: { [key: string]: { name: string, microIdentity?: string, completions: number, duration: number } } = {};
+        habitDocs.forEach(doc => {
+            habitMap[doc._id.toString()] = {
+                name: doc.name,
+                microIdentity: doc.microIdentity,
+                completions: doc.completions ? doc.completions.length : 0,
+                duration: doc.duration
+            };
+        });
+
+        // 4. Inject streak & habit info into members
         if (group.members && Array.isArray(group.members)) {
             group.members.forEach((member: any) => {
-                member.streak = streakMap[member._id.toString()] || 0;
+                const memberId = member._id.toString();
+                member.streak = streakMap[memberId] || 0;
+                
+                const linkedHabitId = groupMemberHabits[memberId];
+                if (linkedHabitId && habitMap[linkedHabitId]) {
+                    member.linkedHabit = {
+                        _id: linkedHabitId,
+                        name: habitMap[linkedHabitId].name,
+                        microIdentity: habitMap[linkedHabitId].microIdentity
+                    };
+                } else {
+                    member.linkedHabit = null;
+                }
             });
             
             // Sort by streak desc
@@ -487,9 +534,21 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
         // Add isCreator flag
         const creatorId = typeof group.creator === 'object' ? group.creator._id : group.creator;
         const isCreator = req.user._id.toString() === creatorId.toString();
+        
+        // Is MY habit linked?
+        const myHabitId = groupMemberHabits[req.user._id.toString()];
+        const myLinkedHabit = myHabitId && habitMap[myHabitId] ? {
+             _id: myHabitId,
+             name: habitMap[myHabitId].name,
+             microIdentity: habitMap[myHabitId].microIdentity,
+             progress: habitMap[myHabitId].completions,
+             duration: habitMap[myHabitId].duration
+        } : null;
+
         const groupWithCreatorFlag = {
             ...group,
-            isCreator
+            isCreator,
+            myLinkedHabit // Helpful for "Your Squad Habit" section
         };
 
         res.json(groupWithCreatorFlag);
@@ -497,3 +556,4 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
         next(error);
     }
 };
+

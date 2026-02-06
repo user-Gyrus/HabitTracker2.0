@@ -33,12 +33,9 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Recalculate streak to ensure consistency (e.g. if user missed yesterday)
-    const calculatedStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
-    // If mismatch, update DB (Self-healing)
-    if (streakDoc.streakCount !== calculatedStreak) {
-        streakDoc.streakCount = calculatedStreak;
-        await streakDoc.save();
-    }
+    // Recalculate streak using centralized logic
+    const { syncStreakInternal } = require("./habitController");
+    const streakInfo = await syncStreakInternal(user._id);
 
     res.json({
       _id: user._id,
@@ -46,13 +43,13 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
       displayName: user.displayName,
       friendCode: user.friendCode,
       email: user.email,
-      streak: streakDoc.streakCount, // Return from Streak collection
-      streakFreezes: streakDoc.streakFreezes,
-      lastCompletedDate: streakDoc.lastCompletedDate,
-      streakHistory: streakDoc.history,
-      streakState: streakDoc.streakState,
-      emberDays: streakDoc.emberDays,
-      completionPercentage: streakDoc.completionPercentage,
+      streak: streakInfo.streak,
+      streakFreezes: streakInfo.streakFreezes,
+      lastCompletedDate: streakInfo.lastCompletedDate,
+      streakHistory: streakInfo.streakHistory,
+      streakState: streakInfo.streakState,
+      emberDays: streakInfo.emberDays,
+      completionPercentage: streakInfo.completionPercentage,
       token: generateToken(user._id.toString()),
     });
   } else {
@@ -119,23 +116,9 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
   const user = await User.findById(req.user._id);
 
   if (user) {
-    // Fetch Streak Data
-    let streakDoc = await Streak.findOne({ user: user._id });
-    
-    // Recalculate streak to ensure consistenc
-    let currentStreak = 0;
-    let streakFreezes = 0;
-    
-    if (streakDoc) {
-         currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
-         streakFreezes = streakDoc.streakFreezes || 0;
-         
-         // Auto-repair if needed
-         if (streakDoc.streakCount !== currentStreak) {
-             streakDoc.streakCount = currentStreak;
-             await streakDoc.save();
-         }
-    }
+    // Recalculate streak using centralized logic
+    const { syncStreakInternal } = require("./habitController");
+    const streakInfo = await syncStreakInternal(user._id);
 
     res.json({
       _id: user._id,
@@ -143,10 +126,12 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
       displayName: user.displayName,
       friendCode: user.friendCode,
       email: user.email,
-      streak: currentStreak,
-      streakFreezes: streakFreezes,
-      lastCompletedDate: streakDoc ? streakDoc.lastCompletedDate : null,
-      friend_code: user.friendCode // For safety/compatibility
+      streak: streakInfo.streak,
+      streakFreezes: streakInfo.streakFreezes,
+      lastCompletedDate: streakInfo.lastCompletedDate,
+      friend_code: user.friendCode,
+      streakState: streakInfo.streakState, // Added return
+      emberDays: streakInfo.emberDays // Added return
     });
   } else {
     res.status(404).json({ message: "User not found" });
