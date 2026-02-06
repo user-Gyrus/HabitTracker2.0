@@ -199,7 +199,17 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
 
         await Promise.all(groupUpdates);
 
-        res.json(groups);
+        // Add isCreator flag to each group
+        const groupsWithCreatorFlag = groups.map((group: any) => {
+            const creatorId = typeof group.creator === 'object' ? group.creator._id : group.creator;
+            const isCreator = req.user._id.toString() === creatorId.toString();
+            return {
+                ...group,
+                isCreator
+            };
+        });
+
+        res.json(groupsWithCreatorFlag);
     } catch (error) {
         next(error);
     }
@@ -317,6 +327,55 @@ export const deleteGroup = async (req: any, res: Response, next: NextFunction): 
     }
 };
 
+// @desc    Transfer squad ownership to another member
+// @route   PUT /api/groups/:groupId/transfer-ownership
+// @access  Private (Creator only)
+export const transferOwnership = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { groupId } = req.params;
+        const { newCreatorId } = req.body;
+        
+        if (!newCreatorId) {
+            res.status(400).json({ message: "New creator ID is required" });
+            return;
+        }
+        
+        const group = await Group.findById(groupId);
+        
+        if (!group) {
+            res.status(404).json({ message: "Squad not found" });
+            return;
+        }
+        
+        // Verify current user is the creator
+        if (group.creator.toString() !== req.user._id.toString()) {
+            res.status(403).json({ message: "Only the creator can transfer ownership" });
+            return;
+        }
+        
+        // Verify new creator is a member
+        const isMember = group.members.some((memberId: any) => memberId.toString() === newCreatorId.toString());
+        if (!isMember) {
+            res.status(400).json({ message: "New creator must be a squad member" });
+            return;
+        }
+        
+        // Prevent transferring to self
+        if (newCreatorId.toString() === req.user._id.toString()) {
+            res.status(400).json({ message: "You are already the creator" });
+            return;
+        }
+        
+        // Update creator
+        group.creator = newCreatorId;
+        await group.save();
+        
+        res.json({ message: "Ownership transferred successfully", group });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Add member to a Squad
 // @route   POST /api/groups/add-member
 // @access  Private
@@ -330,8 +389,9 @@ export const addMemberToGroup = async (req: any, res: Response, next: NextFuncti
             return;
         }
 
-        if (group.members.length >= 10) {
-            res.status(400).json({ message: "Squad is full (max 10 members)" });
+        const groupCapacity = group.capacity || 10;
+        if (group.members.length >= groupCapacity) {
+            res.status(400).json({ message: `Squad is full (max ${groupCapacity} members)` });
             return;
         }
 
@@ -354,22 +414,23 @@ export const addMemberToGroup = async (req: any, res: Response, next: NextFuncti
 // @access  Private
 export const joinGroupByCode = async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { code } = req.body;
+        const { groupCode } = req.body;
 
-        if (!code) {
+        if (!groupCode) {
              res.status(400).json({ message: "Group code is required" });
              return;
         }
 
-        const group = await Group.findOne({ groupCode: code.toUpperCase() });
+        const group = await Group.findOne({ groupCode: groupCode.toUpperCase() });
 
         if (!group) {
             res.status(404).json({ message: "Invalid Squad Code" });
             return;
         }
 
-        if (group.members.length >= 10) {
-            res.status(400).json({ message: "Squad is full (max 10 members)" });
+        const groupCapacity = group.capacity || 10;
+        if (group.members.length >= groupCapacity) {
+            res.status(400).json({ message: `Squad is full (max ${groupCapacity} members)` });
             return;
         }
 
@@ -423,7 +484,15 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
             group.members.sort((a: any, b: any) => (b.streak || 0) - (a.streak || 0));
         }
 
-        res.json(group);
+        // Add isCreator flag
+        const creatorId = typeof group.creator === 'object' ? group.creator._id : group.creator;
+        const isCreator = req.user._id.toString() === creatorId.toString();
+        const groupWithCreatorFlag = {
+            ...group,
+            isCreator
+        };
+
+        res.json(groupWithCreatorFlag);
     } catch (error) {
         next(error);
     }

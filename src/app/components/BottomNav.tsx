@@ -1,6 +1,6 @@
 import { Flame, Users } from 'lucide-react';
 
-type Screen = 'habits' | 'create' | 'profile' | 'social' | 'groups';
+type Screen = 'habits' | 'create' | 'profile' | 'social' | 'groups' | 'create-group' | 'group-details' | 'invite-friend';
 
 interface BottomNavProps {
   currentScreen: Screen;

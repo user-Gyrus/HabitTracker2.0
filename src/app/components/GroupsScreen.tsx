@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Plus, Ticket, Users, Calendar, Trophy, Flame } from "lucide-react";
+import { Plus, Ticket, Users, Calendar, Trophy, Flame, X } from "lucide-react";
+import { toast } from "sonner";
 import { motion } from "motion/react";
 import api from "../../lib/api";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
 
 interface GroupsScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -13,35 +14,55 @@ interface GroupsScreenProps {
 export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
   const [mySquads, setMySquads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+
+  const fetchGroups = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/groups");
+      const mappedGroups = res.data.map((group: any) => ({
+        id: group._id,
+        name: group.name,
+        description: group.groupCode || "SQUAD", 
+        members: group.members.length,
+        maxMembers: 10, 
+        pot: null,
+        rank: null,
+        avatars: group.members.slice(0, 3).map((m: any) => m.displayName?.charAt(0).toUpperCase() || "?"),
+        extraMembers: Math.max(0, group.members.length - 3),
+        isActive: group.isActive,
+        progress: group.members.length / 10,
+        groupStreak: group.groupStreak
+      }));
+      setMySquads(mappedGroups);
+    } catch (error) {
+      console.error("Failed to fetch groups", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        const res = await api.get("/groups");
-        const mappedGroups = res.data.map((group: any) => ({
-          id: group._id,
-          name: group.name,
-          description: group.groupCode || "SQUAD", // Use Code as description or description if exists
-          members: group.members.length,
-          maxMembers: 10, // Hardcoded max per controller
-          pot: null, // Not yet in specific DB schema
-          rank: null,
-          avatars: group.members.slice(0, 3).map((m: any) => m.displayName?.charAt(0).toUpperCase() || "?"),
-          extraMembers: Math.max(0, group.members.length - 3),
-          isActive: group.isActive,
-          progress: group.members.length / 10, // Progress based on capacity
-          groupStreak: group.groupStreak // Pass streak data
-        }));
-        setMySquads(mappedGroups);
-      } catch (error) {
-        console.error("Failed to fetch groups", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchGroups();
   }, []);
+
+  const handleJoinGroup = async () => {
+      if (!joinCode.trim()) return;
+      
+      try {
+          await api.post('/groups/join', { groupCode: joinCode.trim() });
+          toast.success("Successfully joined the squad! 🎉");
+          setShowJoinModal(false);
+          setJoinCode("");
+          // Refresh list
+          fetchGroups();
+      } catch (err: any) {
+          console.error("Failed to join group", err);
+          const msg = err.response?.data?.message || "Failed to join squad";
+          toast.error(msg);
+      }
+  };
 
   // Mock Data for "Discover New Squads" (Kept as is for now as no API exists)
   const discoverSquads = [
@@ -75,7 +96,10 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
           GROUPS
         </h1>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-2xl text-[10px] font-bold tracking-wide hover:bg-primary/20 transition-all active:scale-95 shadow-[0_4px_10px_rgba(255,107,0,0.1)]">
+          <button 
+            onClick={() => setShowJoinModal(true)}
+            className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-2 rounded-2xl text-[10px] font-bold tracking-wide hover:bg-primary/20 transition-all active:scale-95 shadow-[0_4px_10px_rgba(255,107,0,0.1)]"
+          >
             <Ticket size={14} className="fill-primary/20" />
             JOIN CODE
           </button>
@@ -208,6 +232,49 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
             ))}
         </div>
       </div>
+
+      {/* JOIN SQUAD MODAL */}
+      {showJoinModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center px-5">
+             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowJoinModal(false)} />
+             <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <button 
+                  onClick={() => setShowJoinModal(false)}
+                  className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={20} />
+                </button>
+                
+                <div className="text-center mb-6">
+                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                      <Ticket size={32} className="text-primary" />
+                   </div>
+                   <h3 className="text-xl font-bold text-foreground mb-2">Join a Squad</h3>
+                   <p className="text-sm text-muted-foreground">Enter the squad code shared by your friend.</p>
+                </div>
+
+                <div className="mb-6">
+                   <input 
+                      type="text"
+                      placeholder="ENTER CODE (e.g. SQUAD-123)"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3.5 text-center font-mono font-bold text-lg tracking-widest text-foreground focus:outline-none focus:border-primary/50 transition-colors uppercase placeholder:text-muted-foreground/50"
+                      autoFocus
+                   />
+                </div>
+
+                <button
+                  onClick={handleJoinGroup}
+                  disabled={!joinCode.trim()}
+                  className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-primary/20"
+                >
+                  Join Squad
+                </button>
+             </div>
+          </div>
+      )}
+
     </div>
   );
 }

@@ -515,3 +515,90 @@ export const seedTestFriends = async (req: any, res: Response): Promise<void> =>
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// @desc    Migrate existing groups to have groupCode
+// @route   POST /api/admin/migrate-group-codes
+// @access  Private
+export const migrateGroupCodes = async (req: any, res: Response): Promise<void> => {
+    try {
+        const Group = require("../models/Group").default;
+        const { generateGroupCode } = require("../utils/generateGroupCode");
+
+        // Find all groups without a groupCode
+        const groupsWithoutCode = await Group.find({
+            $or: [
+                { groupCode: { $exists: false } },
+                { groupCode: null },
+                { groupCode: '' }
+            ]
+        });
+
+        if (groupsWithoutCode.length === 0) {
+            res.json({ 
+                message: "All groups already have groupCodes", 
+                updated: 0,
+                total: 0 
+            });
+            return;
+        }
+
+        let updated = 0;
+        let failed = 0;
+        const results = [];
+
+        for (const group of groupsWithoutCode) {
+            try {
+                let newCode = generateGroupCode();
+                
+                // Ensure uniqueness (retry if collision)
+                let attempts = 0;
+                while (await Group.findOne({ groupCode: newCode }) && attempts < 10) {
+                    newCode = generateGroupCode();
+                    attempts++;
+                }
+
+                if (attempts >= 10) {
+                    failed++;
+                    results.push({
+                        groupId: group._id,
+                        groupName: group.name,
+                        status: 'failed',
+                        error: 'Could not generate unique code'
+                    });
+                    continue;
+                }
+
+                // Update the group
+                group.groupCode = newCode;
+                await group.save();
+                
+                updated++;
+                results.push({
+                    groupId: group._id,
+                    groupName: group.name,
+                    status: 'success',
+                    code: newCode
+                });
+            } catch (error: any) {
+                failed++;
+                results.push({
+                    groupId: group._id,
+                    groupName: group.name,
+                    status: 'failed',
+                    error: error.message
+                });
+            }
+        }
+
+        res.json({
+            message: "Migration completed",
+            total: groupsWithoutCode.length,
+            updated,
+            failed,
+            results
+        });
+    } catch (error: any) {
+        console.error('Error migrating group codes:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};

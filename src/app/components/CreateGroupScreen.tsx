@@ -3,10 +3,8 @@ import { ArrowLeft, Users, Calendar, Rocket, Search, Check } from "lucide-react"
 import { motion } from "motion/react";
 import api from "../../lib/api";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details";
-
 interface CreateGroupScreenProps {
-  onNavigate: (screen: Screen) => void;
+  onNavigate: (screen: "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend") => void;
 }
 
 export function CreateGroupScreen({ onNavigate }: CreateGroupScreenProps) {

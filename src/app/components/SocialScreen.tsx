@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-type Screen = "habits" | "create" | "profile" | "social";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
 
 // Types needed for habits to calculate progress
 interface UIHabit {
@@ -49,17 +49,19 @@ interface Friend {
 interface Group {
   _id: string;
   name: string;
+  members: any[];
+  creator: any;
+  isCreator?: boolean; // Added for transfer ownership
+  trackingType: string;
+  duration: number;
   avatar: string;
-  daysToGoal: number;
-  description: string;
-  members: { 
-    _id: string; 
-    displayName: string; 
-    username: string; 
-    streak?: number;
-    linkedHabit?: { name: string; completedToday: boolean; } | null;
-  }[];
-  creator: string;
+  description?: string;
+  groupType?: string;
+  isPrivate?: boolean;
+  capacity?: number;
+  stakeAmount?: number;
+  startDate?: string;
+  groupCode?: string;
   groupStreak?: number;
 }
 
@@ -69,6 +71,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showGroupTransferModal, setShowGroupTransferModal] = useState(false);
+  const [selectedTransferMemberId, setSelectedTransferMemberId] = useState<string | null>(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [friendCode, setFriendCode] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -866,8 +870,20 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                     <UserPlus size={18} className="text-muted-foreground" />
                     <span className="text-sm text-foreground">Invite More Friends</span>
                   </button>
-                  {selectedGroup.creator === userProfile?.id ? (
-                      <button 
+                  {selectedGroup.isCreator ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                               if (!selectedGroup) return;
+                               // Show transfer modal (we'll add this state)
+                               setShowGroupTransferModal(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/5 transition-colors text-primary"
+                        >
+                          <Users size={18} className="text-primary" />
+                          <span className="text-sm text-foreground">Transfer Ownership</span>
+                        </button>
+                        <button 
                         onClick={() => {
                              if (!selectedGroup) return;
                              setConfirmation({
@@ -900,6 +916,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                         <Trash2 size={18} />
                         <span className="text-sm">Delete Squad</span>
                       </button>
+                      </>
                   ) : (
                       <button 
                          onClick={() => {
@@ -1506,6 +1523,97 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+      {/* TRANSFER OWNERSHIP MODAL */}
+      {showGroupTransferModal && selectedGroup && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-5">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowGroupTransferModal(false)} />
+          
+          <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl">
+            <button 
+              onClick={() => setShowGroupTransferModal(false)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Users size={32} className="text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Transfer Ownership</h3>
+              <p className="text-sm text-muted-foreground">
+                Select a member to become the new squad creator
+              </p>
+            </div>
+
+            {/* Member List */}
+            <div className="mb-6 max-h-64 overflow-y-auto space-y-2">
+              {selectedGroup.members
+                .filter((member: any) => {
+                  const creatorId = typeof selectedGroup.creator === 'object' ? selectedGroup.creator._id : selectedGroup.creator;
+                  return member._id.toString() !== creatorId.toString();
+                })
+                .map((member: any) => (
+                  <button
+                    key={member._id}
+                    onClick={() => setSelectedTransferMemberId(member._id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                      selectedTransferMemberId === member._id
+                        ? 'bg-primary/10 border-primary'
+                        : 'bg-card-bg border-card-border hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-bold">
+                      {member.displayName?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-sm text-foreground">{member.displayName}</p>
+                      <p className="text-xs text-muted-foreground">{member.streak || 0}d streak</p>
+                    </div>
+                    {selectedTransferMemberId === member._id && (
+                      <Check size={20} className="text-primary" />
+                    )}
+                  </button>
+                ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowGroupTransferModal(false);
+                  setSelectedTransferMemberId(null);
+                }}
+                className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-bold py-3 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedTransferMemberId || !selectedGroup) return;
+                  try {
+                    await api.put(`/groups/${selectedGroup._id}/transfer-ownership`, {
+                      newCreatorId: selectedTransferMemberId
+                    });
+                    toast.success('Ownership transferred successfully');
+                    setShowGroupTransferModal(false);
+                    setSelectedTransferMemberId(null);
+                    setShowGroupDetails(false);
+                    setShowGroupMenu(false);
+                    setSelectedGroup(null);
+                  } catch (err: any) {
+                    toast.error(err.response?.data?.message || 'Failed to transfer ownership');
+                  }
+                }}
+                disabled={!selectedTransferMemberId}
+                className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold py-3 rounded-xl transition-all disabled:cursor-not-allowed"
+              >
+                Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Friend Habits Modal */}
       <FriendHabitsModal

@@ -27,7 +27,7 @@ import {
 import { API_URL, IS_DEVELOPMENT } from "../../config";
 import * as AdminApi from "../../lib/adminApi";
 
-type Screen = "habits" | "create" | "profile" | "social";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
 
 interface ProfileScreenProps {
   onNavigate: (screen: Screen) => void;
