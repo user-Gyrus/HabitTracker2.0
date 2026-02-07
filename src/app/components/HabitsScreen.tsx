@@ -78,15 +78,6 @@ export function HabitsScreen({
   streakState = 'extinguished',
   completionPercentage = 0,
 }: HabitsScreenProps) {
-  // Debug logging
-  console.log('🔥 Streak State Debug:', {
-    streakState,
-    completionPercentage,
-    streak,
-    habitsCount: habits.length,
-    completedCount: habits.filter(h => h.completed_today).length
-  });
-
   // Select a random quote only once on mount
   const currentQuote = useMemo(() => {
     const randomIndex = Math.floor(Math.random() * MENTAL_MODELS.length);

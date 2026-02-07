@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware";
-import { createGroup, getUserGroups, leaveGroup, deleteGroup, addMemberToGroup, linkHabitToGroup, getGroupById, joinGroupByCode, transferOwnership } from "../controllers/groupController";
+import { createGroup, getUserGroups, leaveGroup, deleteGroup, addMemberToGroup, linkHabitToGroup, getGroupById, joinGroupByCode, transferOwnership, requestJoinGroup, approveJoinRequest, denyJoinRequest } from "../controllers/groupController";
 
 const router = express.Router();
 
@@ -13,5 +13,8 @@ router.post("/add-member", protect, addMemberToGroup);
 router.post("/link-habit", protect, linkHabitToGroup);
 router.delete("/:groupId", protect, deleteGroup);
 router.put("/:groupId/transfer-ownership", protect, transferOwnership);
+router.post("/request-join", protect, requestJoinGroup);
+router.post("/approve-request", protect, approveJoinRequest);
+router.post("/deny-request", protect, denyJoinRequest);
 
 export default router;

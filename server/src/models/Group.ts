@@ -21,6 +21,7 @@ export interface IGroup {
   capacity: number;
   stakeAmount?: number;
   startDate?: Date;
+  pendingRequests: { user: Types.ObjectId; requestedAt: Date }[];
 }
 
 const GroupSchema = new Schema<IGroup>(
@@ -52,7 +53,13 @@ const GroupSchema = new Schema<IGroup>(
     isPrivate: { type: Boolean, default: true },
     capacity: { type: Number, default: 10 },
     stakeAmount: { type: Number },
-    startDate: { type: Date }
+    startDate: { type: Date },
+    pendingRequests: [
+        {
+            user: { type: Schema.Types.ObjectId, ref: "User" },
+            requestedAt: { type: Date, default: Date.now }
+        }
+    ]
   },
   { timestamps: true }
 );

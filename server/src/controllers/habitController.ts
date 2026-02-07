@@ -54,18 +54,6 @@ export const syncStreakInternal = async (userId: string) => {
         return true;
     });
 
-    console.log(`🔥 Streak Sync Debug [User: ${userId}]:`, {
-        todayIST,
-        todayNum,
-        totalHabits: allHabits.length,
-        activeHabitsCount: activeHabitsForToday.length,
-        habits: activeHabitsForToday.map((h: any) => ({
-            name: h.name,
-            completedToday: h.completions && h.completions.includes(todayIST),
-            completions: h.completions
-        }))
-    });
-
     // 4. Calculate completion percentage
     let completionPercentage = 0;
     let completedCount = 0;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Ticket, Users, Calendar, Trophy, Flame, X } from "lucide-react";
+import { Plus, Ticket, Users, Calendar, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import api from "../../lib/api";
@@ -20,21 +20,56 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
   const fetchGroups = async () => {
     try {
       setLoading(true);
+      
+      // Get current user ID from API
+      let currentUserId = null;
+      try {
+        const userRes = await api.get("/auth/me");
+        currentUserId = userRes.data._id;
+      } catch (err) {
+        console.error("Failed to get current user", err);
+      }
+      
       const res = await api.get("/groups");
-      const mappedGroups = res.data.map((group: any) => ({
-        id: group._id,
-        name: group.name,
-        description: group.groupCode || "SQUAD", 
-        members: group.members.length,
-        maxMembers: 10, 
-        pot: null,
-        rank: null,
-        avatars: group.members.slice(0, 3).map((m: any) => m.displayName?.charAt(0).toUpperCase() || "?"),
-        extraMembers: Math.max(0, group.members.length - 3),
-        isActive: group.isActive,
-        progress: group.members.length / 10,
-        groupStreak: group.groupStreak
-      }));
+      
+      const mappedGroups = res.data.map((group: any) => {
+        // Calculate pot for staked groups
+        const pot = group.groupType === "staked" && group.stakeAmount 
+          ? group.stakeAmount * group.members.length 
+          : null;
+        
+        // Calculate user's rank based on streak (members are already sorted by streak from backend)
+        let rank = null;
+        if (group.groupType !== "staked" && group.members && currentUserId) {
+          const userIndex = group.members.findIndex((m: any) => m._id === currentUserId || m._id.toString() === currentUserId);
+          if (userIndex !== -1) {
+            rank = userIndex + 1; // 1-indexed rank
+          }
+        }
+        
+        // Calculate habit progress (X/Y completed today)
+        const completedToday = group.completedCount || 0;
+        const totalMembers = group.members.length;
+        const habitProgress = totalMembers > 0 ? completedToday / totalMembers : 0;
+        
+        return {
+          id: group._id,
+          name: group.name,
+          description: group.groupCode || "SQUAD", 
+          members: group.members.length,
+          maxMembers: group.capacity || 10, 
+          pot,
+          rank,
+          habitProgress, // Progress of habit completion today
+          completedToday, // How many completed today
+          avatars: group.members.slice(0, 3).map((m: any) => m.avatar || m.displayName?.charAt(0).toUpperCase() || "?"),
+          extraMembers: Math.max(0, group.members.length - 3),
+          isActive: group.isActive,
+          progress: group.members.length / (group.capacity || 10),
+          groupStreak: group.groupStreak,
+          groupType: group.groupType
+        };
+      });
       setMySquads(mappedGroups);
     } catch (error) {
       console.error("Failed to fetch groups", error);
@@ -139,13 +174,13 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
 
                 <div className="flex items-center justify-between mb-6 relative z-10">
                     <div className="flex items-center gap-5">
-                        {/* Progress Circle Visual */}
+                        {/* Progress Circle Visual - Group Habit Progress */}
                         <div className="relative w-14 h-14 flex items-center justify-center">
                             <svg className="w-full h-full -rotate-90 drop-shadow-lg">
                                 <circle cx="28" cy="28" r="23" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/30" />
-                                <circle cx="28" cy="28" r="23" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-primary" strokeDasharray={144} strokeDashoffset={144 - (144 * squad.progress)} strokeLinecap="round" />
+                                <circle cx="28" cy="28" r="23" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-primary" strokeDasharray={144} strokeDashoffset={144 - (144 * (squad.habitProgress || 0))} strokeLinecap="round" />
                             </svg>
-                            <span className="absolute text-[10px] font-black text-foreground">{squad.members}/{squad.maxMembers}</span>
+                            <span className="absolute text-[10px] font-black text-foreground">{squad.completedToday}/{squad.members}</span>
                         </div>
                         
                         <div>
@@ -154,12 +189,25 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
                         </div>
                     </div>
 
-                    {squad.groupStreak > 0 ? (
-                         <div className="bg-primary/5 border border-primary/10 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm">
-                            <Flame size={14} className="text-orange-500 fill-orange-500" />
+
+                    {/* Badge: Pot for staked groups, Rank for normal groups */}
+                    {squad.pot ? (
+                         <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm shadow-lg shadow-yellow-500/10">
+                            <svg className="w-3.5 h-3.5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="12" r="10" />
+                                <text x="12" y="16" fontSize="12" fontWeight="bold" textAnchor="middle" fill="white">₹</text>
+                            </svg>
                             <div className="flex flex-col leading-none">
-                                <span className="text-xs text-orange-600 font-extrabold">{squad.groupStreak}</span>
-                                <span className="text-[8px] text-orange-600/70 font-semibold uppercase">Streak</span>
+                                <span className="text-xs text-yellow-700 dark:text-yellow-500 font-extrabold">₹{squad.pot}</span>
+                                <span className="text-[8px] text-yellow-700/70 dark:text-yellow-500/70 font-semibold uppercase">Pot</span>
+                            </div>
+                         </div>
+                    ) : squad.rank ? (
+                         <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm shadow-lg shadow-orange-500/10">
+                            <Trophy size={14} className="text-orange-600 fill-orange-600/20" />
+                            <div className="flex flex-col leading-none">
+                                <span className="text-xs text-orange-700 dark:text-orange-500 font-extrabold">#{squad.rank}</span>
+                                <span className="text-[8px] text-orange-700/70 dark:text-orange-500/70 font-semibold uppercase">Rank</span>
                             </div>
                          </div>
                     ) : null}

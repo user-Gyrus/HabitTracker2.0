@@ -22,6 +22,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
   const [showMenu, setShowMenu] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [showPendingRequests, setShowPendingRequests] = useState(false);
   
   // Habit Linking State
   const [showHabitSelector, setShowHabitSelector] = useState(false);
@@ -46,6 +47,28 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
         text: shareText,
         url: shareUrl,
      };
+
+    const handleApproveRequest = async (userId: string) => {
+        try {
+            await api.post("/groups/approve-request", { groupId: group._id, userId });
+            toast.success("Request approved!");
+            fetchGroupDetails(); // Refresh group data
+        } catch (error: any) {
+            console.error("Failed to approve request", error);
+            toast.error(error.response?.data?.message || "Failed to approve request");
+        }
+    };
+
+    const handleDenyRequest = async (userId: string) => {
+        try {
+            await api.post("/groups/deny-request", { groupId: group._id, userId });
+            toast.success("Request denied");
+            fetchGroupDetails(); // Refresh group data
+        } catch (error: any) {
+            console.error("Failed to deny request", error);
+            toast.error(error.response?.data?.message || "Failed to deny request");
+        }
+    };
 
      try {
        if (navigator.share) {
@@ -103,7 +126,6 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
   const fetchGroupDetails = async () => {
       try {
           const res = await api.get(`/groups/${groupId}`);
-          console.log("📦 Group Details Response:", res.data);
           setGroup(res.data);
       } catch (error) {
           console.error("Failed to fetch group details", error);
@@ -174,6 +196,34 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       }
   };
 
+  const handleApproveRequest = async (userId: string) => {
+      try {
+          await api.post('/groups/approve-request', {
+              groupId,
+              userId
+          });
+          toast.success("Request approved!");
+          fetchGroupDetails(); // Refresh to show updated members
+      } catch (error: any) {
+          console.error("Failed to approve request", error);
+          toast.error(error.response?.data?.message || "Failed to approve request");
+      }
+  };
+
+  const handleDenyRequest = async (userId: string) => {
+      try {
+          await api.post('/groups/deny-request', {
+              groupId,
+              userId
+          });
+          toast.success("Request denied");
+          fetchGroupDetails(); // Refresh to remove the request
+      } catch (error: any) {
+          console.error("Failed to deny request", error);
+          toast.error(error.response?.data?.message || "Failed to deny request");
+      }
+  };
+
   if (loading) {
       return <div className="min-h-screen flex items-center justify-center text-muted-foreground text-xs">Loading squad details...</div>;
   }
@@ -187,13 +237,9 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       );
   }
 
-  // Calculate Progress (Mocking logic based on dates if real tracking not fully populated)
-  // Logic: Days elapsed since startDate / Total Duration
-  const startDate = new Date(group.startDate || group.createdAt);
-  const today = new Date();
-  const diffTime = Math.abs(today.getTime() - startDate.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-  const progress = Math.min(diffDays, group.duration); // Cap at duration
+  // Calculate Progress from user's linked habit completions
+  // Progress = User's habit completions / Habit duration  
+  const progress = group.myLinkedHabit?.progress || 0;
   
   // Use isCreator from API response (database is source of truth)
   const isCreator = group.isCreator || false;
@@ -275,160 +321,247 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
          )}
       </div>
 
-      {/* Hero Section */}
-      <div className="flex items-start justify-between mb-8">
-          <div>
-              <h1 className="text-2xl font-black text-foreground mb-1 leading-tight">{group.name}</h1>
-              <p className="text-xs text-muted-foreground font-medium">{group.description}</p>
-          </div>
+      {/* Hero Section - Modernized */}
+      <div className="relative mb-8 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-3xl p-6 border border-primary/20 backdrop-blur-sm overflow-hidden">
+          {/* Decorative glow */}
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/20 blur-3xl rounded-full" />
+          
+          <div className="flex items-center justify-between relative z-10">
+              <div className="flex-1">
+                  <h1 className="text-3xl font-black bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent mb-2 leading-tight">{group.name}</h1>
+                  <p className="text-sm text-muted-foreground font-medium flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                      {group.description}
+                  </p>
+              </div>
 
-          {/* Progress Circle Visual */}
-          <div className="relative w-16 h-16 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90 drop-shadow-lg">
-                    <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-muted/20" />
-                    <circle 
-                        cx="32" cy="32" r="28" 
-                        stroke="currentColor" strokeWidth="6" fill="transparent" 
-                        className="text-orange-500" 
-                        strokeDasharray={175} 
-                        strokeDashoffset={175 - (175 * (progress / group.duration))} 
-                        strokeLinecap="round" 
-                    />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                    <span className="text-[10px] font-black text-foreground leading-none">{progress}/{group.duration}</span>
-                </div>
+              {/* Enhanced Progress Circle */}
+              <div className="relative w-20 h-20 flex items-center justify-center">
+                    {/* Outer glow ring */}
+                    <div className="absolute inset-0 rounded-full bg-primary/10 blur-md"></div>
+                    
+                    <svg className="w-full h-full -rotate-90 relative z-10">
+                        <circle cx="40" cy="40" r="34" stroke="currentColor" strokeWidth="5" fill="transparent" className="text-muted/10" />
+                        <circle 
+                            cx="40" cy="40" r="34" 
+                            stroke="url(#progressGradient)" strokeWidth="5" fill="transparent" 
+                            strokeDasharray={213} 
+                            strokeDashoffset={213 - (213 * (progress / group.duration))} 
+                            strokeLinecap="round" 
+                            className="transition-all duration-500"
+                        />
+                        <defs>
+                            <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#f97316" />
+                                <stop offset="100%" stopColor="#fb923c" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-xs font-black bg-gradient-to-br from-primary to-orange-600 bg-clip-text text-transparent">{progress}</span>
+                        <span className="text-[8px] text-muted-foreground">/ {group.duration}</span>
+                    </div>
+              </div>
           </div>
       </div>
 
       {/* Pending Requests */}
       <div className="mb-8">
-          <div className="flex items-center justify-between mb-3 px-1">
-             <h2 className="text-[10px] font-bold text-foreground">Pending Requests</h2>
-             <span className="bg-orange-500/20 text-orange-500 text-[9px] font-bold px-2 py-0.5 rounded-full">1 NEW</span>
-          </div>
-          {/* Mock content remains */}
-          <div className="bg-card-bg border border-card-border rounded-2xl p-4">
-              <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm border-2 border-card-bg relative">
-                      👨‍💻
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-card-bg flex items-center justify-center">
-                          <Clock size={10} className="text-muted-foreground" />
-                      </div>
-                  </div>
-                  <div>
-                      <h3 className="font-bold text-sm text-foreground">Alex Rivera</h3>
-                      <p className="text-[10px] text-muted-foreground">Wants to join</p>
-                  </div>
+           <button 
+               onClick={() => setShowPendingRequests(!showPendingRequests)}
+               className="flex items-center justify-between mb-4 px-1 w-full text-left group"
+           >
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Pending Requests</h2>
+              <div className="flex items-center gap-2">
+                  {group.pendingRequests && group.pendingRequests.length > 0 && (
+                      <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold px-2.5 py-1 rounded-full shadow-lg shadow-orange-500/30 animate-pulse">
+                          {group.pendingRequests.length} NEW
+                      </span>
+                  )}
+                  <ChevronRight 
+                      size={14} 
+                      className={`text-muted-foreground transition-transform ${showPendingRequests ? 'rotate-90' : ''}`} 
+                  />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                  <button className="bg-muted/30 text-muted-foreground text-[10px] font-bold py-2.5 rounded-xl hover:bg-muted/50 transition-colors uppercase tracking-wide">Decline</button>
-                  <button className="bg-orange-500 text-white text-[10px] font-bold py-2.5 rounded-xl hover:bg-orange-600 transition-colors uppercase tracking-wide shadow-lg shadow-orange-500/20">Accept</button>
-              </div>
-          </div>
+           </button>
+           
+           <AnimatePresence>
+               {showPendingRequests && (
+                   <motion.div
+                       initial={{ opacity: 0, height: 0 }}
+                       animate={{ opacity: 1, height: 'auto' }}
+                       exit={{ opacity: 0, height: 0 }}
+                       transition={{ duration: 0.2 }}
+                   >
+                       {group.pendingRequests && group.pendingRequests.length > 0 ? (
+                           <div className="space-y-3">
+                               {group.pendingRequests.map((request: any) => (
+                                   <div key={request.user._id} className="bg-card-bg border border-card-border rounded-2xl p-4">
+                                       <div className="flex items-center gap-3 mb-4">
+                                           <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-lg border-2 border-card-bg">
+                                               {request.user.displayName?.[0] || "?"}
+                                           </div>
+                                           <div>
+                                               <h3 className="font-bold text-sm text-foreground">{request.user.displayName || "Unknown"}</h3>
+                                               <p className="text-[10px] text-muted-foreground">Wants to join</p>
+                                           </div>
+                                       </div>
+                                       <div className="grid grid-cols-2 gap-3">
+                                           <button 
+                                               onClick={() => handleDenyRequest(request.user._id)}
+                                               className="bg-muted/30 text-muted-foreground text-[10px] font-bold py-2.5 rounded-xl hover:bg-muted/50 transition-colors uppercase tracking-wide"
+                                           >
+                                               Decline
+                                           </button>
+                                           <button 
+                                               onClick={() => handleApproveRequest(request.user._id)}
+                                               className="bg-orange-500 text-white text-[10px] font-bold py-2.5 rounded-xl hover:bg-orange-600 transition-colors uppercase tracking-wide shadow-lg shadow-orange-500/20"
+                                           >
+                                               Accept
+                                           </button>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       ) : (
+                           <div className="bg-card-bg border border-card-border rounded-2xl p-4 text-center">
+                               <p className="text-xs text-muted-foreground">No pending requests</p>
+                           </div>
+                       )}
+                   </motion.div>
+               )}
+           </AnimatePresence>
       </div>
 
-      {/* Your Squad Habit */}
+      {/* Your Squad Habit - Enhanced */}
       <div className="mb-8">
-          <h2 className="text-[10px] font-bold text-foreground mb-3 px-1">Your Squad Habit</h2>
-          <div className="bg-card-bg border border-card-border rounded-2xl p-4 flex items-center gap-4 group hover:border-orange-500/30 transition-all relative">
+           <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-1">Your Squad Habit</h2>
+           <div className="relative bg-gradient-to-br from-primary/5 via-orange-500/5 to-transparent border border-primary/20 rounded-3xl p-6 overflow-hidden backdrop-blur-sm">
+               {/* Decorative glow */}
+               <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 blur-2xl rounded-full" />
+               
                {group.myLinkedHabit ? (
-                   <>
-                       {/* Circular Progress */}
-                       <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
-                            <svg className="w-full h-full -rotate-90">
-                                <circle 
-                                    cx="28" cy="28" r="22" 
-                                    stroke="currentColor" strokeWidth="4" fill="transparent" 
-                                    className="text-muted/20" 
-                                />
-                                <circle 
-                                    cx="28" cy="28" r="22" 
-                                    stroke="currentColor" strokeWidth="4" fill="transparent" 
-                                    className="text-orange-500 transition-all duration-1000 ease-out" 
-                                    strokeDasharray={138} 
-                                    strokeDashoffset={138 - (138 * ((group.myLinkedHabit.progress || 0) / (group.myLinkedHabit.duration || 21)))} 
-                                    strokeLinecap="round" 
-                                />
-                            </svg>
-                            <span className="absolute text-[10px] font-bold text-foreground">
-                                <span className="text-orange-500">{group.myLinkedHabit.progress || 0}</span>
-                                <span className="text-muted-foreground">/{group.myLinkedHabit.duration || 21}</span>
-                            </span>
+                   <div className="flex items-center justify-between relative z-10">
+                       <div className="flex items-center gap-4 flex-1">
+                            <div className="relative w-16 h-16 flex items-center justify-center">
+                                 {/* Outer glow */}
+                                 <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-md"></div>
+                                 
+                                 <svg className="w-full h-full -rotate-90 relative z-10">
+                                     <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/10" />
+                                     <circle 
+                                         cx="32" cy="32" r="28" 
+                                         stroke="url(#habitGradient)" strokeWidth="4" fill="transparent" 
+                                         strokeDasharray={175} 
+                                         strokeDashoffset={175 - (175 * ((group.myLinkedHabit.progress || 0) / (group.myLinkedHabit.duration || 21)))} 
+                                         strokeLinecap="round" 
+                                         className="transition-all duration-500"
+                                     />
+                                     <defs>
+                                         <linearGradient id="habitGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                             <stop offset="0%" stopColor="#f97316" />
+                                             <stop offset="100%" stopColor="#fb923c" />
+                                         </linearGradient>
+                                     </defs>
+                                 </svg>
+                                 <div className="absolute flex flex-col items-center">
+                                     <span className="text-[10px] font-black leading-none">
+                                         <span className="bg-gradient-to-br from-primary to-orange-600 bg-clip-text text-transparent">{group.myLinkedHabit.progress || 0}</span>
+                                         <span className="text-muted-foreground">/{group.myLinkedHabit.duration || 21}</span>
+                                     </span>
+                                 </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-base text-foreground mb-1 truncate">{group.myLinkedHabit.name}</h3>
+                                <p className="text-xs">
+                                    <span className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-full font-semibold">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                                        {group.myLinkedHabit.microIdentity || "SQUAD"}
+                                    </span>
+                                </p>
+                            </div>
                        </div>
-
-                       {/* Habit Info */}
-                       <div className="flex-1 min-w-0">
-                           <h3 className="font-bold text-sm text-foreground truncate">{group.myLinkedHabit.name}</h3>
-                           <p className="text-[10px] text-orange-500 font-bold uppercase tracking-wider">{group.myLinkedHabit.microIdentity || "Linked"}</p>
-                       </div>
-                   </>
+                       <button 
+                         onClick={handleCreateSquadHabit}
+                         className="text-xs font-bold text-foreground/70 hover:text-foreground border-2 border-card-border hover:border-primary/30 bg-background/50 hover:bg-background/80 backdrop-blur-sm px-4 py-2 rounded-xl transition-all uppercase whitespace-nowrap shadow-sm hover:shadow-md"
+                       >
+                           Change
+                       </button>
+                   </div>
                ) : (
-                   <div className="flex items-center gap-4 flex-1">
-                        <div className="w-14 h-14 rounded-full bg-muted/20 flex items-center justify-center text-muted-foreground">
-                            <Plus size={20} />
-                        </div>
-                        <div>
-                             <h3 className="font-bold text-sm text-foreground">No habit linked</h3>
-                             <p className="text-[10px] text-muted-foreground">Link a habit to this squad to track progress</p>
-                        </div>
+                   <div className="text-center py-8 relative z-10">
+                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500/20 to-primary/20 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/10">
+                            <Plus size={24} className="text-orange-500" strokeWidth={2.5} />
+                       </div>
+                       <h3 className="font-bold text-base text-foreground mb-2">No Habit Linked</h3>
+                       <p className="text-sm text-muted-foreground mb-5">Connect a habit to track with your squad</p>
+                       <button 
+                         onClick={handleCreateSquadHabit}
+                         className="text-sm font-bold text-white bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-600/90 px-6 py-2.5 rounded-xl transition-all uppercase shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 active:scale-95"
+                       >
+                           Connect Habit
+                       </button>
                    </div>
                )}
-               
-               <button 
-                 onClick={handleCreateSquadHabit}
-                 className="text-[10px] font-bold text-muted-foreground hover:text-foreground border border-card-border bg-card-bg hover:bg-muted px-3 py-1.5 rounded-lg transition-all uppercase whitespace-nowrap"
-               >
-                   {group.myLinkedHabit ? "Change" : "Connect Habit"}
-               </button>
-          </div>
-      </div>
+           </div>
+       </div>
 
-      {/* Squad Members */}
-      <div>
-          <h2 className="text-[10px] font-bold text-foreground mb-3 px-1">Squad Members</h2>
-          <div className="bg-card-bg border border-card-border rounded-3xl p-1 divide-y divide-card-border/50">
+
+      {/* Squad Members - Enhanced */}
+      <div className="mb-8">
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-1">Squad Members</h2>
+          <div className="bg-gradient-to-br from-card-bg to-card-bg/50 border border-card-border rounded-3xl p-2 divide-y divide-card-border/50 shadow-lg">
               {group.members.map((member: any, index: number) => (
-                  <div key={member._id} className="flex items-center justify-between p-4 relative group hover:bg-muted/5 transition-colors rounded-2xl">
-                       <div className="flex items-center gap-4">
-                           <span className={`text-xs font-black w-4 text-center ${index === 0 ? "text-yellow-500" : index === 1 ? "text-orange-500" : index === 2 ? "text-slate-400" : "text-muted-foreground/50"}`}>
-                               {index + 1}
-                           </span>
-                           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border-2 border-transparent group-hover:border-orange-500/20 transition-all relative">
-                               {member.avatar || member.displayName?.charAt(0).toUpperCase() || "?"}
-                               {index === 0 && <span className="absolute -top-1 -right-1 text-xs">👑</span>}
-                           </div>
-                           <div>
-                               <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                                   {member.displayName}
-                                   {/* If linked habit exists, show it as a badge? Or just keep mock badges for now? Let's show linked habit info if available */}
-                                   {member.linkedHabit && <span className="text-[8px] bg-muted/50 px-1.5 py-0.5 rounded text-muted-foreground lowercase">{member.linkedHabit.name}</span>}
-                               </h3>
-                               <p className="text-[10px] text-muted-foreground">
-                                   {/* Revert to simple text if no specific logic */}
-                                   {index < 3 ? "Leading the pack" : "Staying consistent"}
-                               </p>
-                           </div>
-                       </div>
-                       
-                       <div className="text-right">
-                           <div className="text-sm font-black text-foreground">{member.streak || 0}d</div>
-                           <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Streak</div>
-                       </div>
-                  </div>
+                   <div key={member._id} className="flex items-center justify-between p-4 relative group hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all rounded-2xl">
+                        <div className="flex items-center gap-4 flex-1">
+                            <div className="relative flex-shrink-0">
+                                <span className={`text-sm font-black ${index === 0 ? "text-yellow-500" : index === 1 ? "text-orange-500" : index === 2 ? "text-slate-400" : "text-muted-foreground/50"}`}>
+                                    {index + 1}
+                                </span>
+                            </div>
+                            <div className="relative flex-shrink-0">
+                                <div className={`w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-base border-2 transition-all shadow-md ${
+                                    index === 0 ? 'from-yellow-400 to-orange-500 border-yellow-500/30 shadow-yellow-500/20' :
+                                    index === 1 ? 'from-orange-400 to-red-500 border-orange-500/30 shadow-orange-500/20' :
+                                    index === 2 ? 'from-slate-300 to-slate-400 border-slate-400/30 shadow-slate-400/20' :
+                                    'from-muted to-muted/50 border-transparent group-hover:border-primary/20'
+                                }`}>
+                                    {member.avatar || member.displayName?.charAt(0).toUpperCase() || "?"}
+                                </div>
+                                {index === 0 && <span className="absolute -top-1 -right-1 text-base drop-shadow-lg">👑</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <h3 className="font-bold text-sm text-foreground truncate">
+                                        {member.displayName}
+                                    </h3>
+                                    {member.linkedHabit && <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0">Active</span>}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                    {member.linkedHabit ? (member.linkedHabit.microIdentity || member.linkedHabit.name) : "No habit linked"}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="text-right flex-shrink-0 ml-3">
+                            <div className="text-sm font-black text-foreground">{member.streak || 0}d</div>
+                            <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Streak</div>
+                        </div>
+                   </div>
               ))}
           </div>
           <p className="text-[9px] text-center text-muted-foreground mt-3 opacity-60">Rank reflects consecutive streak days in this group.</p>
       </div>
 
-      {/* Footer Actions */}
+      {/* Footer Actions - Enhanced */}
       <div className="mt-8">
           <button 
             onClick={() => setShowInviteModal(true)}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            className="relative w-full bg-gradient-to-r from-primary via-orange-500 to-orange-600 hover:from-primary/90 hover:via-orange-500/90 hover:to-orange-600/90 text-white font-black uppercase tracking-widest py-4 px-6 rounded-2xl shadow-xl shadow-primary/30 hover:shadow-2xl hover:shadow-primary/40 flex items-center justify-center gap-2 active:scale-[0.98] transition-all overflow-hidden group"
           >
-              <UserPlus size={18} />
-              Invite Friend
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              <UserPlus size={20} strokeWidth={2.5} className="relative z-10" />
+              <span className="relative z-10">Invite Friend</span>
           </button>
       </div>
 

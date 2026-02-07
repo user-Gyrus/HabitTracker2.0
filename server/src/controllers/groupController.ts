@@ -82,18 +82,9 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             }
         });
 
-        // 2. Fetch Streak documents for all these members
-        const streakDocs = await Streak.find({ user: { $in: Array.from(uniqueMemberIds) } });
-
-        // 3. Create a Map for O(1) streak lookup
-        const streakMap: { [key: string]: number } = {};
-        streakDocs.forEach(doc => {
-            streakMap[doc.user.toString()] = doc.streakCount;
-        });
-
-        // 4. Fetch Habit documents for linked habits
+        // 2. Fetch Habit documents for linked habits (including completions for streak calculation)
         const habitDocs = await Habit.find({ _id: { $in: Array.from(uniqueHabitIds) } });
-        const habitMap: { [key: string]: { name: string, completedToday: boolean, completions: string[] } } = {};
+        const habitMap: { [key: string]: { name: string, completedToday: boolean, completions: any[] } } = {};
         
         // Get IST Dates
         const todayIST = getISTDate();
@@ -115,7 +106,7 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             habitMap[doc._id.toString()] = {
                 name: doc.name,
                 completedToday: doc.completions && doc.completions.includes(todayIST),
-                completions: doc.completions || []
+                completions: doc.completions || [] // Full array for streak calculation
             };
         });
 
@@ -130,34 +121,50 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             }
 
             let allMembersCompletedToday = true;
-            let hasAnyLinkedHabit = false; // If no one has linked habits, streak shouldn't increment
+            let hasAnyLinkedHabit = false;
+            let completedCount = 0; // Track how many completed today
+            let totalLinked = 0; // Track how many have linked habits
 
             if (group.members && Array.isArray(group.members)) {
                 group.members.forEach((member: any) => {
                     if (!member || !member._id) return;
                     const memberId = member._id.toString();
-                    member.streak = streakMap[memberId] || 0;
                     
-                    // Check for linked habit
+                    // Calculate habit-specific streak for this member
                     const linkedHabitId = groupMemberHabits[memberId];
                     if (linkedHabitId && habitMap[linkedHabitId]) {
+                        // Use calculateHabitStreak instead of personal streak
+                        member.streak = calculateHabitStreak(habitMap[linkedHabitId].completions);
+                        
                         member.linkedHabit = {
                             name: habitMap[linkedHabitId].name,
                             completedToday: habitMap[linkedHabitId].completedToday
                         };
                         hasAnyLinkedHabit = true;
+                        totalLinked++; // Count members with linked habits
                         
                         // Check if THIS member completed today
-                        if (!habitMap[linkedHabitId].completedToday) {
+                        if (habitMap[linkedHabitId].completedToday) {
+                            completedCount++; // Count completed today
+                        } else {
                             allMembersCompletedToday = false;
                         }
                     } else {
+                        // No linked habit = 0 streak
+                        member.streak = 0;
                         member.linkedHabit = null;
                         // Strict Rule: No linked habit = Incomplete
                         allMembersCompletedToday = false;
                     }
                 });
+                
+                // Sort members by habit streak descending
+                group.members.sort((a: any, b: any) => (b.streak || 0) - (a.streak || 0));
             }
+            
+            // Add progress tracking to group
+            group.completedCount = completedCount;
+            group.totalLinked = totalLinked;
 
             // --- Group Streak Logic ---
             let groupModified = false;
@@ -199,13 +206,16 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
 
         await Promise.all(groupUpdates);
 
-        // Add isCreator flag to each group
+        // Add isCreator flag to each group and ensure required fields exist
         const groupsWithCreatorFlag = groups.map((group: any) => {
             const creatorId = typeof group.creator === 'object' ? group.creator._id : group.creator;
             const isCreator = req.user._id.toString() === creatorId.toString();
             return {
                 ...group,
-                isCreator
+                isCreator,
+                groupType: group.groupType || "social", // Default to social for older groups
+                stakeAmount: group.stakeAmount || null,
+                capacity: group.capacity || 10
             };
         });
 
@@ -452,6 +462,49 @@ export const joinGroupByCode = async (req: any, res: Response, next: NextFunctio
     }
 };
 
+// Helper: Calculate consecutive habit completion streak
+const calculateHabitStreak = (completions: Date[]): number => {
+    if (!completions || completions.length === 0) return 0;
+    
+    // Sort completions descending (newest first)
+    const sorted = completions.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
+    
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check if completed today
+    const latestCompletion = new Date(sorted[0]);
+    latestCompletion.setHours(0, 0, 0, 0);
+    
+    // If not completed today, check if yesterday (allow grace period)
+    if (latestCompletion.getTime() !== today.getTime()) {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (latestCompletion.getTime() !== yesterday.getTime()) {
+            return 0; // Streak broken
+        }
+    }
+    
+    // Count backwards consecutive days
+    let expectedDate = new Date(latestCompletion);
+    
+    for (const completion of sorted) {
+        const compDate = new Date(completion);
+        compDate.setHours(0, 0, 0, 0);
+        
+        if (compDate.getTime() === expectedDate.getTime()) {
+            streak++;
+            expectedDate.setDate(expectedDate.getDate() - 1);
+        } else {
+            break;
+        }
+    }
+    
+    return streak;
+};
+
 // @desc    Get Specific Squad Details
 // @route   GET /api/groups/:groupId
 // @access  Private
@@ -465,7 +518,8 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
     try {
         const { groupId } = req.params;
         const group = await Group.findById(groupId)
-            .populate("members", "displayName username friendCode") // Fetch basic member info
+            .populate("members", "displayName username friendCode") // Fetch basic member info 
+            .populate("pendingRequests.user", "displayName username friendCode") // Fetch pending request user info
             .lean();
 
         if (!group) {
@@ -490,39 +544,40 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
             });
         }
 
-        // 2. Fetch Streaks
-        const streakDocs = await Streak.find({ user: { $in: memberIds } });
-        const streakMap: { [key: string]: number } = {};
-        streakDocs.forEach(doc => {
-            streakMap[doc.user.toString()] = doc.streakCount;
-        });
-
-        // 3. Fetch Habits details
+        // 2. Fetch Habits details (including completions for streak calculation)
         const habitDocs = await Habit.find({ _id: { $in: Array.from(linkedHabitIds) } });
-        const habitMap: { [key: string]: { name: string, microIdentity?: string, completions: number, duration: number } } = {};
+        const habitMap: { [key: string]: { name: string, microIdentity?: string, completions: any[], completionCount: number, duration: number } } = {};
         habitDocs.forEach(doc => {
             habitMap[doc._id.toString()] = {
                 name: doc.name,
                 microIdentity: doc.microIdentity,
-                completions: doc.completions ? doc.completions.length : 0,
+                completions: doc.completions || [],
+                completionCount: doc.completions ? doc.completions.length : 0,
                 duration: doc.duration
             };
         });
 
-        // 4. Inject streak & habit info into members
+        // 3. Inject habit streak & info into members
+
         if (group.members && Array.isArray(group.members)) {
             group.members.forEach((member: any) => {
                 const memberId = member._id.toString();
-                member.streak = streakMap[memberId] || 0;
                 
+                // Calculate habit-specific streak for this group
                 const linkedHabitId = groupMemberHabits[memberId];
                 if (linkedHabitId && habitMap[linkedHabitId]) {
+                    // Calculate streak from linked habit completions
+                    member.streak = calculateHabitStreak(habitMap[linkedHabitId].completions);
+                    
+                    // Add linked habit info
                     member.linkedHabit = {
                         _id: linkedHabitId,
                         name: habitMap[linkedHabitId].name,
                         microIdentity: habitMap[linkedHabitId].microIdentity
                     };
                 } else {
+                    // No linked habit = 0 streak
+                    member.streak = 0;
                     member.linkedHabit = null;
                 }
             });
@@ -541,8 +596,9 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
              _id: myHabitId,
              name: habitMap[myHabitId].name,
              microIdentity: habitMap[myHabitId].microIdentity,
-             progress: habitMap[myHabitId].completions,
-             duration: habitMap[myHabitId].duration
+             progress: habitMap[myHabitId].completionCount, // Use completionCount instead
+             duration: habitMap[myHabitId].duration,
+             completedToday: false // Placeholder, could enhance later
         } : null;
 
         const groupWithCreatorFlag = {
@@ -556,4 +612,150 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
         next(error);
     }
 };
+
+// @desc    Request to Join a Squad (Discover Flow)
+// @route   POST /api/groups/request-join
+// @access  Private
+export const requestJoinGroup = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { groupId } = req.body;
+
+        if (!groupId) {
+             res.status(400).json({ message: "Group ID is required" });
+             return;
+        }
+
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            res.status(404).json({ message: "Squad not found" });
+            return;
+        }
+
+        const groupCapacity = group.capacity || 10;
+        if (group.members.length >= groupCapacity) {
+            res.status(400).json({ message: `Squad is full (max ${groupCapacity} members)` });
+            return;
+        }
+
+        if (group.members.includes(req.user._id)) {
+            res.status(400).json({ message: "You are already a member of this squad" });
+            return;
+        }
+
+        // Check if already requested
+        const alreadyRequested = group.pendingRequests.some(
+            (pr) => pr.user.toString() === req.user._id.toString()
+        );
+
+        if (alreadyRequested) {
+            res.status(400).json({ message: "You have already requested to join this squad" });
+            return;
+        }
+
+        group.pendingRequests.push({ user: req.user._id, requestedAt: new Date() });
+        await group.save();
+
+        res.status(200).json({ message: "Join request sent successfully" });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Approve Join Request
+// @route   POST /api/groups/approve-request
+// @access  Private (Any member)
+export const approveJoinRequest = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { groupId, userId } = req.body;
+
+        if (!groupId || !userId) {
+             res.status(400).json({ message: "Group ID and User ID are required" });
+             return;
+        }
+
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            res.status(404).json({ message: "Squad not found" });
+            return;
+        }
+
+        // Check if requester is a member
+        if (!group.members.includes(req.user._id)) {
+            res.status(403).json({ message: "Only squad members can approve requests" });
+            return;
+        }
+
+        // Find pending request
+        const requestIndex = group.pendingRequests.findIndex(
+            (pr) => pr.user.toString() === userId.toString()
+        );
+
+        if (requestIndex === -1) {
+            res.status(404).json({ message: "Join request not found" });
+            return;
+        }
+
+        const groupCapacity = group.capacity || 10;
+        if (group.members.length >= groupCapacity) {
+            res.status(400).json({ message: `Squad is full (max ${groupCapacity} members)` });
+            return;
+        }
+
+        // Move from pending to members
+        group.pendingRequests.splice(requestIndex, 1);
+        group.members.push(userId);
+        await group.save();
+
+        res.status(200).json({ message: "Join request approved", group });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Deny Join Request
+// @route   POST /api/groups/deny-request
+// @access  Private (Any member)
+export const denyJoinRequest = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { groupId, userId } = req.body;
+
+        if (!groupId || !userId) {
+             res.status(400).json({ message: "Group ID and User ID are required" });
+             return;
+        }
+
+        const group = await Group.findById(groupId);
+
+        if (!group) {
+            res.status(404).json({ message: "Squad not found" });
+            return;
+        }
+
+        // Check if requester is a member
+        if (!group.members.includes(req.user._id)) {
+            res.status(403).json({ message: "Only squad members can deny requests" });
+            return;
+        }
+
+        // Find and remove pending request
+        const requestIndex = group.pendingRequests.findIndex(
+            (pr) => pr.user.toString() === userId.toString()
+        );
+
+        if (requestIndex === -1) {
+            res.status(404).json({ message: "Join request not found" });
+            return;
+        }
+
+        group.pendingRequests.splice(requestIndex, 1);
+        await group.save();
+
+        res.status(200).json({ message: "Join request denied" });
+    } catch (error) {
+        next(error);
+    }
+};
+
 

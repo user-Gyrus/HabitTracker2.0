@@ -123,10 +123,6 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
-    console.log('🔍 Profile object:', profile);
-    console.log('🔍 Profile._id:', profile?._id);
-    console.log('🔍 Profile.id:', (profile as any)?.id);
-    
     // Try both _id and id fields
     const userId = profile?._id || (profile as any)?.id;
     
@@ -135,8 +131,6 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
       toast.error("User session not found");
       return;
     }
-
-    console.log('✅ Using user ID:', userId);
 
     try {
       if (enabled) {
