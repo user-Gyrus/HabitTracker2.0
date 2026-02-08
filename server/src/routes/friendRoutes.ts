@@ -5,12 +5,14 @@ import {
     addFriend, 
     removeFriend, 
     getFriends,
-    getFriendHabits
+    getFriendHabits,
+    getSuggestedFriends
 } from "../controllers/friendController";
 
 const router = express.Router();
 
 router.get("/search", protect, searchUser);
+router.get("/suggestions", protect, getSuggestedFriends);
 router.post("/add", protect, addFriend);
 router.post("/remove", protect, removeFriend);
 router.get("/", protect, getFriends);

@@ -46,6 +46,15 @@ interface Friend {
   streakState?: 'active' | 'frozen' | 'extinguished';
 }
 
+interface SuggestedFriend {
+  _id: string;
+  displayName: string;
+  username: string;
+  friendCode: string;
+  streak: number;
+  mutualFriends: number;
+}
+
 interface Group {
   _id: string;
   name: string;
@@ -97,6 +106,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [searchingFriend, setSearchingFriend] = useState<boolean>(false);
   const [selectedFriendForHabits, setSelectedFriendForHabits] = useState<Friend | null>(null);
   const [showFriendHabitsModal, setShowFriendHabitsModal] = useState(false);
+  const [suggestedFriends, setSuggestedFriends] = useState<SuggestedFriend[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
 
   // Confirmation Dialog State
   const [confirmation, setConfirmation] = useState<{
@@ -173,6 +184,26 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
 
     return () => clearInterval(intervalId);
   }, []);
+
+  // Fetch Suggested Friends
+  useEffect(() => {
+    const fetchSuggestedFriends = async () => {
+      try {
+        setSuggestionsLoading(true);
+        const res = await api.get("/friends/suggestions");
+        setSuggestedFriends(res.data);
+      } catch (err) {
+        console.error("Failed to fetch suggested friends", err);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    };
+    
+    // Only fetch suggestions after friends are loaded
+    if (!friendsLoading) {
+      fetchSuggestedFriends();
+    }
+  }, [friendsLoading]);
 
   const copyFriendCode = () => {
     if (userProfile?.friendCode) {
@@ -475,6 +506,79 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
             )}
           </div>
         </div>
+
+        {/* Discover Friends */}
+        {!friendsLoading && suggestedFriends.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-foreground">Discover Friends</h2>
+              {suggestedFriends.length > 3 && (
+                <button className="text-sm text-primary font-semibold">View all</button>
+              )}
+            </div>
+            
+            {suggestionsLoading ? (
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="min-w-[160px] bg-card-bg rounded-2xl p-4 border border-card-border animate-pulse">
+                    <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-3" />
+                    <div className="h-4 bg-muted rounded mb-2" />
+                    <div className="h-3 bg-muted rounded w-3/4 mx-auto" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {suggestedFriends.map((suggestion) => (
+                  <div
+                    key={suggestion._id}
+                    className="min-w-[160px] bg-card-bg rounded-2xl p-4 border border-card-border hover:border-primary/30 transition-colors shadow-sm flex flex-col items-center"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-xl font-bold border-2 border-background mb-3">
+                      {suggestion.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <p className="font-semibold text-sm text-foreground text-center mb-1 truncate w-full px-1">
+                      {suggestion.displayName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3 text-center">
+                      {suggestion.mutualFriends} mutual{suggestion.mutualFriends !== 1 ? 's' : ''}
+                    </p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await api.post("/friends/add", { friendId: suggestion._id });
+                          toast.success(`Added ${suggestion.displayName}!`);
+                          
+                          // Remove from suggestions
+                          setSuggestedFriends(prev => prev.filter(s => s._id !== suggestion._id));
+                          
+                          // Add to friends list
+                          const newFriend: Friend = {
+                            id: suggestion._id,
+                            name: suggestion.displayName,
+                            emoji: "😎",
+                            streak: suggestion.streak,
+                            isOnline: false,
+                            friendCode: suggestion.friendCode,
+                            completedToday: false,
+                            streakState: 'extinguished'
+                          };
+                          setFriends(prev => [...prev, newFriend]);
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || "Failed to add friend");
+                        }
+                      }}
+                      className="w-full bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary rounded-xl py-2 px-4 font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <Plus size={16} />
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Squad Modal */}

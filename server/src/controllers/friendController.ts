@@ -254,3 +254,80 @@ export const getFriendHabits = async (req: any, res: Response, next: NextFunctio
     }
 };
 
+// @desc    Get suggested friends (friends of friends)
+// @route   GET /api/friends/suggestions
+// @access  Private
+export const getSuggestedFriends = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const currentUserId = req.user._id;
+        
+        // Get current user with friends populated
+        const currentUser = await User.findById(currentUserId).populate("friends", "_id");
+        
+        if (!currentUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // Get IDs of current user's friends
+        const friendIds = currentUser.friends.map((f: any) => f._id.toString());
+        
+        // Find friends of friends
+        const friendsOfFriends = await User.find({
+            _id: { $in: friendIds }
+        }).populate("friends", "_id displayName username friendCode");
+
+        // Aggregate potential suggestions with mutual friend counts
+        const suggestionMap = new Map<string, { user: any; mutualCount: number }>();
+
+        friendsOfFriends.forEach((friend: any) => {
+            friend.friends.forEach((potentialFriend: any) => {
+                const potentialId = potentialFriend._id.toString();
+                
+                // Exclude self and existing friends
+                if (
+                    potentialId !== currentUserId.toString() &&
+                    !friendIds.includes(potentialId)
+                ) {
+                    if (suggestionMap.has(potentialId)) {
+                        suggestionMap.get(potentialId)!.mutualCount++;
+                    } else {
+                        suggestionMap.set(potentialId, {
+                            user: potentialFriend,
+                            mutualCount: 1
+                        });
+                    }
+                }
+            });
+        });
+
+        // Convert to array and sort by mutual friend count
+        const suggestions = Array.from(suggestionMap.values())
+            .sort((a, b) => b.mutualCount - a.mutualCount)
+            .slice(0, 5); // Top 5 suggestions
+
+        // Fetch streak data for suggestions
+        const suggestionIds = suggestions.map(s => s.user._id);
+        const streakDocs = await Streak.find({ user: { $in: suggestionIds } });
+        
+        const streakMap: { [key: string]: number } = {};
+        streakDocs.forEach(doc => {
+            streakMap[doc.user.toString()] = doc.streakCount;
+        });
+
+        // Format response
+        const formattedSuggestions = suggestions.map(s => ({
+            _id: s.user._id,
+            displayName: s.user.displayName,
+            username: s.user.username,
+            friendCode: s.user.friendCode,
+            streak: streakMap[s.user._id.toString()] || 0,
+            mutualFriends: s.mutualCount
+        }));
+
+        res.json(formattedSuggestions);
+    } catch (error) {
+        next(error);
+    }
+};
+

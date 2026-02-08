@@ -99,29 +99,7 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
       }
   };
 
-  // Mock Data for "Discover New Squads" (Kept as is for now as no API exists)
-  const discoverSquads = [
-    {
-      id: "3",
-      name: "Yoga Daily",
-      description: "Master flexibility in 30 days.",
-      creator: "Kate",
-      creatorAvatar: "🧘‍♀️",
-      membersCount: "2 others",
-      startDate: "Jan 25",
-      totalMembers: 124,
-    },
-    {
-      id: "4",
-      name: "Keto Life",
-      description: "Strict low carb for elite focus.",
-      creator: "Sam",
-      creatorAvatar: "🥗",
-      membersCount: "5 others",
-      startDate: "Feb 01",
-      totalMembers: 89,
-    }
-  ];
+
 
   return (
     <div className="min-h-screen px-5 pt-6 pb-28 text-foreground bg-gradient-to-b from-[var(--bg-gradient-start)] to-[var(--bg-gradient-end)]">
@@ -239,45 +217,27 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
         </div>
       </div>
 
-      {/* Discover New Squads Section */}
+      {/* Discover New Squads Section - Coming Soon */}
       <div>
         <div className="flex items-center justify-between mb-5 px-1">
             <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Discover New Squads</h2>
-            <button className="text-[10px] font-bold text-primary hover:text-primary/70 transition-colors uppercase tracking-wide">View All</button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-            {discoverSquads.map((squad) => (
-                <div key={squad.id} className="bg-card-bg/50 backdrop-blur-sm p-4 rounded-[1.5rem] border border-card-border/60 flex flex-col h-full relative overflow-hidden group hover:bg-card-bg hover:border-primary/30 transition-all shadow-sm hover:shadow-lg hover:shadow-primary/5">
-                     
-                     <div className="mb-4 relative z-10">
-                         <h3 className="font-bold text-foreground text-sm mb-1 line-clamp-1">{squad.name}</h3>
-                         <p className="text-[10px] text-muted-foreground leading-tight line-clamp-2">{squad.description}</p>
-                     </div>
-
-                     <div className="flex items-center gap-2 mb-4 relative z-10">
-                         <div className="w-5 h-5 rounded-full bg-muted/50 border border-muted flex items-center justify-center text-[10px] shadow-sm">{squad.creatorAvatar}</div>
-                         <span className="text-[9px] text-muted-foreground font-medium">{squad.creator} & {squad.membersCount}</span>
-                     </div>
-
-                     <div className="mt-auto relative z-10 w-full">
-                         <div className="flex items-center justify-between mb-4 px-1">
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                                <Calendar size={12} className="opacity-70" />
-                                <span className="text-[9px] font-medium">{squad.startDate}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-muted-foreground">
-                                <Users size={12} className="opacity-70" />
-                                <span className="text-[9px] font-medium">{squad.totalMembers}</span>
-                            </div>
-                         </div>
-                         
-                         <button className="w-full border border-primary/20 bg-primary/5 text-primary text-[10px] font-extrabold py-2.5 rounded-xl hover:bg-primary hover:text-white transition-all uppercase tracking-wider shadow-sm">
-                             Join Squad
-                         </button>
-                     </div>
-                </div>
-            ))}
+        <div className="bg-gradient-to-br from-card-bg/80 to-card-bg/40 backdrop-blur-md p-8 rounded-[2rem] border border-card-border/50 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[200px]">
+            {/* Decorative Background */}
+            <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary/5 blur-[80px] rounded-full pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-primary/5 blur-[80px] rounded-full pointer-events-none" />
+            
+            {/* Content */}
+            <div className="relative z-10">
+                <div className="text-4xl mb-4">✨</div>
+                <h3 className="text-lg font-black text-foreground mb-2 bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
+                    Coming Soon
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-[250px] leading-relaxed">
+                    Discover and join public squads with people who share your goals!
+                </p>
+            </div>
         </div>
       </div>
 
