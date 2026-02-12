@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus, Flame, Share2, MessageCircle } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus, Flame, Share2, MessageCircle, AlertCircle, Snowflake } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 // Types needed for habits to calculate progress
 interface UIHabit {
@@ -44,6 +44,7 @@ interface Friend {
 
   completedToday: boolean;
   streakState?: 'active' | 'frozen' | 'extinguished';
+  hasReactedToday?: boolean;
 }
 
 interface SuggestedFriend {
@@ -53,6 +54,27 @@ interface SuggestedFriend {
   friendCode: string;
   streak: number;
   mutualFriends: number;
+}
+
+interface Notification {
+    _id: string;
+    type: 'incomplete_habits' | 'lost_streak';
+    data: {
+        friendId: string;
+        friendName: string;
+        count?: number;
+        date: string;
+    };
+    read: boolean;
+    createdAt: string;
+    read: boolean;
+    createdAt: string;
+}
+
+interface ReceivedReaction {
+    fromUser: string;
+    fromName: string;
+    date: string;
 }
 
 interface Group {
@@ -98,7 +120,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [duration, setDuration] = useState(30);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number} | null>(null);
+  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number; receivedReactions?: ReceivedReaction[]} | null>(null);
   const [copied, setCopied] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState<boolean>(true);
@@ -108,6 +130,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [showFriendHabitsModal, setShowFriendHabitsModal] = useState(false);
   const [suggestedFriends, setSuggestedFriends] = useState<SuggestedFriend[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Confirmation Dialog State
   const [confirmation, setConfirmation] = useState<{
@@ -127,10 +150,11 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   });
 
   // Fetch Friends
+  // Fetch Friends
   useEffect(() => {
-    const fetchFriends = async () => {
+    const fetchFriends = async (isBackground = false) => {
         try {
-            setFriendsLoading(true);
+            if (!isBackground) setFriendsLoading(true);
             const res = await api.get("/friends");
             const mappedFriends = res.data.map((f: any) => {
                 // FIX: Use local date parts to avoid UTC shift problems for "Today"
@@ -165,14 +189,15 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                     friendCode: f.friendCode,
 
                     completedToday: isCompletedToday,
-                    streakState: f.streakState // Map from backend
+                    streakState: f.streakState, // Map from backend
+                    hasReactedToday: f.hasReactedToday // Map from backend
                 };
             });
             setFriends(mappedFriends);
         } catch (err) {
             console.error("Failed to fetch friends", err);
         } finally {
-            setFriendsLoading(false);
+            if (!isBackground) setFriendsLoading(false);
         }
     };
 
@@ -180,9 +205,22 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
     fetchFriends();
 
     // Poll every 10 seconds for real-time updates
-    const intervalId = setInterval(fetchFriends, 10000);
+    const intervalId = setInterval(() => fetchFriends(true), 10000);
 
     return () => clearInterval(intervalId);
+  }, []);
+
+  // Fetch Notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+        try {
+            const res = await api.get("/notifications");
+            setNotifications(res.data);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        }
+    };
+    fetchNotifications();
   }, []);
 
   // Fetch Suggested Friends
@@ -222,6 +260,30 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
       toast.success("Friend removed");
     } catch (err: any) {
         toast.error(err.response?.data?.message || "Failed to remove friend");
+    }
+  };
+
+  const handleFireReaction = async (friendId: string) => {
+    // Optimistic Update
+    setFriends(prev => prev.map(f => {
+        if (f.id === friendId) {
+            return { ...f, hasReactedToday: true };
+        }
+        return f;
+    }));
+
+    try {
+        await api.post("/friends/react", { friendId });
+        toast.success("Fire reaction sent! 🔥");
+    } catch (err: any) {
+        // Revert on failure
+        setFriends(prev => prev.map(f => {
+            if (f.id === friendId) {
+                return { ...f, hasReactedToday: false };
+            }
+            return f;
+        }));
+        toast.error(err.response?.data?.message || "Failed to send reaction");
     }
   };
 
@@ -400,6 +462,71 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
 
 
 
+        {/* Fire Reactions Feed */}
+        {userProfile?.receivedReactions && userProfile.receivedReactions.length > 0 && (
+            <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", bounce: 0.4 }}
+                className="bg-card-bg rounded-2xl p-4 border border-card-border mb-6 relative overflow-hidden shadow-sm"
+            >
+                 <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                     <Flame size={48} className="text-orange-500 fill-orange-500" />
+                 </div>
+                 <div className="flex items-start gap-3 relative z-10">
+                     <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                         <Flame className="text-orange-500 fill-orange-500" size={20} />
+                     </div>
+                     <div>
+                         <h3 className="font-bold text-foreground text-base mb-1">Your Crew is Fired Up</h3>
+                         <p className="text-sm text-muted-foreground">
+                             <span className="text-orange-500 font-medium">
+                                 {(() => {
+                                     const names = userProfile.receivedReactions.map(r => r.fromName);
+                                     if (names.length === 0) return "";
+                                     if (names.length === 1) return names[0];
+                                     if (names.length === 2) return `${names[0]} and ${names[1]}`;
+                                     return `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+                                 })()}
+                             </span>
+                             {" reacted to your progress!"}
+                         </p>
+                     </div>
+                 </div>
+            </motion.div>
+        )}
+
+        {/* Notifications */}
+        {notifications.length > 0 && (
+            <div className="mb-6 space-y-3">
+                {notifications.map((notification) => (
+                    <div 
+                        key={notification._id}
+                        className="bg-card-bg rounded-2xl p-4 border border-card-border flex items-center gap-4 relative overflow-hidden shadow-sm"
+                    >
+                        {/* Accent Bar */}
+                        <div className={`w-1 h-8 rounded-full ${
+                            notification.type === 'incomplete_habits' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        
+                        {/* Content */}
+                        <p className="text-sm font-medium text-foreground">
+                            <span className={notification.type === 'incomplete_habits' ? 'text-yellow-500' : 'text-red-500'}>
+                                {notification.data.friendName}
+                            </span>
+                            <span className="text-muted-foreground">
+                                {notification.type === 'incomplete_habits' 
+                                    ? ' has incomplete habits.' 
+                                    : ` lost a ${notification.data.count || 0}-day streak.`
+                                }
+                            </span>
+                            {notification.type === 'lost_streak' && <span className="ml-2">❄️</span>}
+                        </p>
+                    </div>
+                ))}
+            </div>
+        )}
+
         {/* Daily Goal */}
         {/* Daily Goal (Redesigned) */}
         <div 
@@ -475,7 +602,29 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                       </p>
                     </div>
                   </div>
-                  <div className="relative">
+                  <div className="relative flex items-center gap-2">
+                    <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        whileHover={{ scale: 1.05 }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleFireReaction(friend.id);
+                        }}
+                        disabled={friend.hasReactedToday}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                            friend.hasReactedToday 
+                            ? "bg-orange-500/20 text-orange-500 border border-orange-500/50 cursor-default"
+                            : "bg-secondary text-muted-foreground hover:bg-orange-500/10 hover:text-orange-500"
+                        }`}
+                    >
+                        <motion.div
+                            animate={friend.hasReactedToday ? { scale: [1, 1.2, 1], rotate: [0, 15, -15, 0] } : {}}
+                            transition={{ duration: 0.4 }}
+                        >
+                            <Flame size={12} className={friend.hasReactedToday ? "fill-orange-500" : ""} />
+                        </motion.div>
+                        {friend.hasReactedToday ? "Reacted" : "React"}
+                    </motion.button>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -528,53 +677,84 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                 ))}
               </div>
             ) : (
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {suggestedFriends.map((suggestion) => (
-                  <div
-                    key={suggestion._id}
-                    className="min-w-[160px] bg-card-bg rounded-2xl p-4 border border-card-border hover:border-primary/30 transition-colors shadow-sm flex flex-col items-center"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-xl font-bold border-2 border-background mb-3">
-                      {suggestion.displayName.charAt(0).toUpperCase()}
-                    </div>
-                    <p className="font-semibold text-sm text-foreground text-center mb-1 truncate w-full px-1">
-                      {suggestion.displayName}
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-3 text-center">
-                      {suggestion.mutualFriends} mutual{suggestion.mutualFriends !== 1 ? 's' : ''}
-                    </p>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await api.post("/friends/add", { friendId: suggestion._id });
-                          toast.success(`Added ${suggestion.displayName}!`);
-                          
-                          // Remove from suggestions
-                          setSuggestedFriends(prev => prev.filter(s => s._id !== suggestion._id));
-                          
-                          // Add to friends list
-                          const newFriend: Friend = {
-                            id: suggestion._id,
-                            name: suggestion.displayName,
-                            emoji: "😎",
-                            streak: suggestion.streak,
-                            isOnline: false,
-                            friendCode: suggestion.friendCode,
-                            completedToday: false,
-                            streakState: 'extinguished'
-                          };
-                          setFriends(prev => [...prev, newFriend]);
-                        } catch (err: any) {
-                          toast.error(err.response?.data?.message || "Failed to add friend");
-                        }
-                      }}
-                      className="w-full bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary rounded-xl py-2 px-4 font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+              <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory">
+                {suggestedFriends.map((suggestion, index) => {
+                  // Generate varied gradient colors based on index to avoid all blue
+                  const gradients = [
+                    'from-violet-500 via-purple-500 to-fuchsia-500',
+                    'from-amber-500 via-orange-500 to-red-500',
+                    'from-emerald-500 via-teal-500 to-cyan-500',
+                    'from-rose-500 via-pink-500 to-purple-500',
+                    'from-blue-500 via-indigo-500 to-violet-500',
+                    'from-green-500 via-emerald-500 to-teal-500',
+                    'from-yellow-500 via-amber-500 to-orange-500',
+                    'from-cyan-500 via-sky-500 to-blue-500',
+                  ];
+                  const gradient = gradients[index % gradients.length];
+                  
+                  return (
+                    <div
+                      key={suggestion._id}
+                      className="min-w-[170px] snap-center bg-gradient-to-br from-card-bg/90 to-card-bg/50 backdrop-blur-xl rounded-3xl p-5 border border-card-border/50 active:border-primary/60 transition-all duration-200 shadow-lg active:shadow-xl active:shadow-primary/10 flex flex-col items-center group relative overflow-hidden active:scale-[0.98]"
                     >
-                      <Plus size={16} />
-                      Add
-                    </button>
-                  </div>
-                ))}
+                      {/* Avatar with varied gradients */}
+                      <div className="relative mb-4">
+                        <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl font-black text-white border-4 border-background shadow-xl relative z-10`}>
+                          {suggestion.displayName.charAt(0).toUpperCase()}
+                        </div>
+                        {/* Subtle glow effect */}
+                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${gradient} blur-xl opacity-40`} />
+                      </div>
+                      
+                      {/* Name */}
+                      <p className="font-bold text-base text-foreground text-center mb-1 truncate w-full px-1 relative z-10">
+                        {suggestion.displayName}
+                      </p>
+                      
+                      {/* Mutual friends with icon */}
+                      <div className="flex items-center gap-1 mb-4 relative z-10">
+                        <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {suggestion.mutualFriends} mutual{suggestion.mutualFriends !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      
+                      {/* Modern Add button */}
+                      <button
+                        onClick={async () => {
+                          try {
+                            await api.post("/friends/add", { friendId: suggestion._id });
+                            toast.success(`Added ${suggestion.displayName}!`);
+                            
+                            // Remove from suggestions
+                            setSuggestedFriends(prev => prev.filter(s => s._id !== suggestion._id));
+                            
+                            // Add to friends list
+                            const newFriend: Friend = {
+                              id: suggestion._id,
+                              name: suggestion.displayName,
+                              emoji: "😎",
+                              streak: suggestion.streak,
+                              isOnline: false,
+                              friendCode: suggestion.friendCode,
+                              completedToday: false,
+                              streakState: 'extinguished'
+                            };
+                            setFriends(prev => [...prev, newFriend]);
+                          } catch (err: any) {
+                            toast.error(err.response?.data?.message || "Failed to add friend");
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-primary to-primary/90 active:from-primary/80 active:to-primary/70 text-primary-foreground rounded-2xl py-2.5 px-4 font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-primary/20 active:shadow-xl active:shadow-primary/30 relative z-10"
+                      >
+                        <Plus size={18} />
+                        Add
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

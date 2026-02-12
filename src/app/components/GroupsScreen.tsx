@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Ticket, Users, Calendar, Trophy, X } from "lucide-react";
+import { Plus, Ticket, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import api from "../../lib/api";
+import { SquadsListSkeleton } from "./LoadingSkeletons";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 interface GroupsScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -33,10 +34,33 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
       const res = await api.get("/groups");
       
       const mappedGroups = res.data.map((group: any) => {
-        // Calculate pot for staked groups
-        const pot = group.groupType === "staked" && group.stakeAmount 
-          ? group.stakeAmount * group.members.length 
-          : null;
+        // DEBUG LOGGING
+        if (group.groupType === 'staked') {
+            console.log(`[GroupsScreen] Staked Group: ${group.name}`, group.members);
+            group.members.forEach((m: any, i: number) => {
+                console.log(`Member ${i} (${m.displayName}): Streak=${m.streak}, LinkedHabit=${!!m.linkedHabit}`);
+            });
+        }
+        
+        // Calculate pot for staked groups (Dynamic: Total Pot / Survivors)
+        let pot = null;
+        if (group.groupType === "staked" && group.stakeAmount) {
+            const totalPot = group.stakeAmount * group.members.length;
+            // Survivors = members with streak > 0 AND a linked habit
+            // Note: In `getUserGroups` controller, `member.streak` is 0 if no habit is linked anyway.
+            // But let's be explicit: 
+            // In the mapped object below, we check `hasLinkedHabit` for the CURRENT user, but for OTHERS,
+            // we need to know if THEY have a linked habit. 
+            // The controller `getUserGroups` populates `member.streak` as 0 if no habit. 
+            // So `m.streak > 0` should implicitly cover "has linked habit" because 0 streak = dropout.
+            // However, the user specifically asked for "not linked habit as well". 
+            // If they just joined, streak might be 0 but they haven't linked yet.
+            // Let's rely on the controller logic: "No linked habit = 0 streak".
+            // So filtering by `m.streak > 0` is safe and correct.
+            const survivors = group.members.filter((m: any) => m.streak > 0).length;
+            
+            pot = survivors > 0 ? Math.floor(totalPot / survivors) : 0;
+        }
         
         // Calculate user's rank based on streak (members are already sorted by streak from backend)
         let rank = null;
@@ -52,23 +76,43 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
         const totalMembers = group.members.length;
         const habitProgress = totalMembers > 0 ? completedToday / totalMembers : 0;
         
-        return {
-          id: group._id,
-          name: group.name,
-          description: group.groupCode || "SQUAD", 
-          members: group.members.length,
-          maxMembers: group.capacity || 10, 
-          pot,
-          rank,
-          habitProgress, // Progress of habit completion today
-          completedToday, // How many completed today
-          avatars: group.members.slice(0, 3).map((m: any) => m.avatar || m.displayName?.charAt(0).toUpperCase() || "?"),
-          extraMembers: Math.max(0, group.members.length - 3),
-          isActive: group.isActive,
-          progress: group.members.length / (group.capacity || 10),
-          groupStreak: group.groupStreak,
-          groupType: group.groupType
-        };
+        // Check if current user has linked a habit to this squad
+        const currentUserMember = currentUserId ? group.members.find((m: any) => m._id === currentUserId || m._id.toString() === currentUserId) : null;
+        const hasLinkedHabit = currentUserMember ? !!currentUserMember.linkedHabit : false;
+        
+          
+          const startDate = group.startDate ? new Date(group.startDate) : new Date(group.createdAt);
+          const now = new Date();
+          const diffTime = now.getTime() - startDate.getTime();
+          // Calculate days elapsed (1-indexed)
+          // If started today or future, it should be at least Day 1 or calculated correctly
+          const daysRunning = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+          return {
+            id: group._id,
+            name: group.name,
+            description: group.groupCode || "SQUAD", 
+            members: group.members.length,
+            maxMembers: group.capacity || 10, 
+            pot,
+            rank,
+            habitProgress, // Keep for potential use, but UI now uses duration
+            completedToday, 
+            avatars: group.members.slice(0, 3).map((m: any) => ({
+                label: m.avatar || m.displayName?.charAt(0).toUpperCase() || "?",
+                streak: m.streak || 0,
+                id: m._id,
+                hasLinkedHabit: !!m.linkedHabit
+            })),
+            extraMembers: Math.max(0, group.members.length - 3),
+            isActive: group.isActive,
+            progress: group.members.length / (group.capacity || 10),
+            groupStreak: group.groupStreak,
+            groupType: group.groupType,
+            hasLinkedHabit,
+            duration: group.duration,
+            daysRunning
+          };
       });
       setMySquads(mappedGroups);
     } catch (error) {
@@ -131,7 +175,7 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
         
         <div className="space-y-5">
           {loading ? (
-             <div className="text-center py-10 text-muted-foreground text-xs">Loading squads...</div>
+             <SquadsListSkeleton />
           ) : mySquads.length === 0 ? (
              <div className="bg-card-bg/50 border border-card-border rounded-2xl p-6 text-center">
                  <p className="text-muted-foreground text-sm font-medium mb-2">You haven't joined any squads yet.</p>
@@ -145,25 +189,53 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.3 }}
-              className="bg-card-bg/80 backdrop-blur-md border border-card-border/50 rounded-[2rem] p-5 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_40px_rgba(255,107,0,0.08)] hover:border-primary/20 transition-all group"
+              className={`bg-card-bg/80 backdrop-blur-md border rounded-[2rem] p-5 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_40px_rgba(255,107,0,0.08)] transition-all group ${
+                squad.groupType === 'staked' 
+                  ? 'border-yellow-500/80 shadow-[0_0_25px_rgba(234,179,8,0.2)]' 
+                  : 'border-card-border/50 hover:border-primary/20'
+              }`}
             >
                 {/* Subtle Gradient Glow */}
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 blur-[60px] rounded-full pointer-events-none group-hover:bg-primary/10 transition-colors" />
 
                 <div className="flex items-center justify-between mb-6 relative z-10">
                     <div className="flex items-center gap-5">
-                        {/* Progress Circle Visual - Group Habit Progress */}
+                        {/* Progress Circle Visual - Squad Duration Progress */}
                         <div className="relative w-14 h-14 flex items-center justify-center">
                             <svg className="w-full h-full -rotate-90 drop-shadow-lg">
                                 <circle cx="28" cy="28" r="23" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-muted/30" />
-                                <circle cx="28" cy="28" r="23" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-primary" strokeDasharray={144} strokeDashoffset={144 - (144 * (squad.habitProgress || 0))} strokeLinecap="round" />
+                                <circle 
+                                  cx="28" 
+                                  cy="28" 
+                                  r="23" 
+                                  stroke="currentColor" 
+                                  strokeWidth="4" 
+                                  fill="transparent" 
+                                  className="text-primary" 
+                                  strokeDasharray={144} 
+                                  strokeDashoffset={144 - (144 * (Math.min(squad.daysRunning / squad.duration, 1) || 0))} 
+                                  strokeLinecap="round" 
+                                />
                             </svg>
-                            <span className="absolute text-[10px] font-black text-foreground">{squad.completedToday}/{squad.members}</span>
+                            <div className="absolute text-[8px] font-black text-foreground flex flex-col items-center leading-none">
+                                <span>Day</span>
+                                <span className="text-[10px]">{squad.daysRunning}/{squad.duration}</span>
+                            </div>
                         </div>
                         
                         <div>
                             <h3 className="font-bold text-lg leading-tight text-foreground mb-1 group-hover:text-primary transition-colors">{squad.name}</h3>
                             <p className="text-[10px] font-bold text-primary tracking-widest uppercase opacity-90">{squad.description}</p>
+                            
+                            {/* Unlinked Habit Indicator */}
+                            {!squad.hasLinkedHabit && (
+                                <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-amber-500/10 border border-amber-500/30 border-dashed rounded-md w-fit">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-amber-600">
+                                        <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                    <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-500 uppercase tracking-wide">Link Habit</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -193,13 +265,45 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
 
                 <div className="flex items-center justify-between relative z-10">
                      <div className="flex items-center -space-x-2 pl-2">
-                         {squad.avatars.map((avatar: string, i: number) => (
-                             <div key={i} className="w-8 h-8 rounded-full bg-card-bg border-[3px] border-card-bg flex items-center justify-center text-sm shadow-sm ring-1 ring-black/5 z-0 hover:z-10 hover:scale-110 transition-transform cursor-pointer">
-                                 {avatar}
-                             </div>
-                         ))}
+                         {squad.avatars.map((member: any, i: number) => {
+                             // Generate varied gradient colors for each member
+                             const gradients = [
+                               'from-violet-500 to-fuchsia-600',
+                               'from-amber-500 to-orange-600',
+                               'from-emerald-500 to-teal-600',
+                               'from-rose-500 to-pink-600',
+                               'from-blue-500 to-indigo-600',
+                               'from-green-500 to-emerald-600',
+                               'from-yellow-500 to-amber-600',
+                               'from-cyan-500 to-blue-600',
+                             ];
+                             const gradient = gradients[i % gradients.length];
+                             
+                             // Check for Dropout (Staked only + (0 streak OR no habit))
+                             const isDroppedOut = squad.groupType === 'staked' && ((member.streak || 0) === 0 || !member.hasLinkedHabit);
+
+                             return (
+                               <div 
+                                 key={i} 
+                                 className={`w-9 h-9 rounded-full border-[3px] border-card-bg flex items-center justify-center text-sm font-bold text-white shadow-md active:scale-95 transition-transform cursor-pointer relative z-0 active:z-10
+                                    ${isDroppedOut 
+                                        ? 'bg-zinc-600 grayscale opacity-70 ring-2 ring-red-500/50' 
+                                        : `bg-gradient-to-br ${gradient}`
+                                    }
+                                 `}
+                                 title={isDroppedOut ? "Dropped Out" : "Active Survivor"}
+                               >
+                                   {member.label}
+                                   {isDroppedOut && (
+                                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
+                                           <span className="text-[10px]">💀</span>
+                                       </div>
+                                   )}
+                               </div>
+                             );
+                         })}
                          {squad.extraMembers > 0 && (
-                             <div className="w-8 h-8 rounded-full bg-muted border-[3px] border-card-bg flex items-center justify-center text-[10px] font-bold text-muted-foreground shadow-sm ring-1 ring-black/5 z-0">
+                             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 border-[3px] border-card-bg flex items-center justify-center text-[10px] font-bold text-white shadow-md relative z-0">
                                  +{squad.extraMembers}
                              </div>
                          )}

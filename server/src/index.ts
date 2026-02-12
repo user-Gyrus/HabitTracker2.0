@@ -29,6 +29,7 @@ import groupRoutes from "./routes/groupRoutes";
 import habitRoutes from "./routes/habitRoutes";
 import pushRoutes from "./routes/pushRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 import { initializeNotificationScheduler } from "./services/notificationScheduler";
 
 app.use("/api/auth", authRoutes);
@@ -37,6 +38,7 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/habits", habitRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Initialize push notification scheduler
 initializeNotificationScheduler();

@@ -6,7 +6,8 @@ import {
     removeFriend, 
     getFriends,
     getFriendHabits,
-    getSuggestedFriends
+    getSuggestedFriends,
+    sendFireReaction
 } from "../controllers/friendController";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.get("/search", protect, searchUser);
 router.get("/suggestions", protect, getSuggestedFriends);
 router.post("/add", protect, addFriend);
 router.post("/remove", protect, removeFriend);
+router.post("/react", protect, sendFireReaction);
 router.get("/", protect, getFriends);
 router.get("/:friendId/habits", protect, getFriendHabits);
 

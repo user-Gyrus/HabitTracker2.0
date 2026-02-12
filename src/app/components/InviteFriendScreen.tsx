@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Copy, Link as LinkIcon, MessageCircle, Share2 } from "lucide-react";
 import api from "../../lib/api";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 interface InviteFriendScreenProps {
   onNavigate: (screen: Screen) => void;

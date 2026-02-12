@@ -156,17 +156,29 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
             };
         });
 
+        // 0. Get Date
+        const { getISTDate } = require("../utils/dateUtils");
+        const todayIST = getISTDate();
+
         // Merge data
-        const friendsWithStreak = friendsList.map(f => ({
-            _id: f._id,
-            displayName: f.displayName,
-            username: f.username,
-            friendCode: f.friendCode,
-            streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
-            lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
-            lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null,
-            streakState: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakState : 'extinguished' // Add this
-        }));
+        const friendsWithStreak = friendsList.map(f => {
+             // Check if current user has sent a reaction to this friend today
+             const hasReacted = user.fireReactionsSent.some(
+                (r: any) => r.toUser.toString() === f._id.toString() && r.date === todayIST
+             );
+             
+             return {
+                _id: f._id,
+                displayName: f.displayName,
+                username: f.username,
+                friendCode: f.friendCode,
+                streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
+                lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
+                lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null,
+                streakState: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakState : 'extinguished',
+                hasReactedToday: hasReacted
+            };
+        });
 
         res.json(friendsWithStreak);
     } catch (error) {
@@ -326,6 +338,69 @@ export const getSuggestedFriends = async (req: any, res: Response, next: NextFun
         }));
 
         res.json(formattedSuggestions);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Send a fire reaction to a friend (Daily)
+// @route   POST /api/friends/react
+// @access  Private
+export const sendFireReaction = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { friendId } = req.body;
+        const currentUserId = req.user._id;
+
+        // 1. Get current date (IST for consistency with streaks)
+        const { getISTDate } = require("../utils/dateUtils");
+        const todayIST = getISTDate();
+
+        // 2. Find sender and receiver
+        const sender = await User.findById(currentUserId);
+        const receiver = await User.findById(friendId);
+
+        if (!sender || !receiver) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // 3. Verify friendship
+        if (!sender.friends.includes(friendId)) {
+            res.status(403).json({ message: "You can only react to friends" });
+            return;
+        }
+
+        // 4. Check if already reacted today
+        const alreadyReacted = sender.fireReactionsSent.some(
+            (r: any) => r.toUser.toString() === friendId && r.date === todayIST
+        );
+
+        if (alreadyReacted) {
+             // Idempotent success or toggle off? Requirement says "reset every day", implies one-way?
+             // "Users may choose to send a single fire reaction... or not react at all."
+             // Usually reactions can be untoggled, but "sent a single fire reaction" sounds one-off.
+             // I'll assume idempotent success.
+             res.status(200).json({ message: "Already reacted today" });
+             return;
+        }
+
+        // 5. Add reaction
+        sender.fireReactionsSent.push({
+            toUser: friendId,
+            date: todayIST
+        });
+
+        receiver.fireReactionsReceived.push({
+            fromUser: sender._id,
+            fromName: sender.displayName,
+            date: todayIST
+        });
+
+        await sender.save();
+        await receiver.save();
+
+        res.status(200).json({ message: "Fire reaction sent!" });
+
     } catch (error) {
         next(error);
     }

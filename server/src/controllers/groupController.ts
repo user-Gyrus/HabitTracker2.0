@@ -116,7 +116,16 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             const groupMemberHabits: { [userId: string]: string } = {}; // userId -> habitId
             if (group.memberHabits) {
                 group.memberHabits.forEach((mh: any) => {
-                    groupMemberHabits[mh.user.toString()] = mh.habit.toString();
+                    if (mh.habit && mh.user) {
+                         // DEBUG LOG (Safe)
+                        if (group.name === "Staked Club") {
+                            // To avoid circular structure or crash, just log ID strings
+                            const uId = mh.user.toString ? mh.user.toString() : mh.user;
+                            const hId = mh.habit.toString ? mh.habit.toString() : mh.habit;
+                            console.log(`[getUserGroups] Staked Club MemberHabit: User=${uId}, Habit=${hId}`);
+                        }
+                        groupMemberHabits[mh.user.toString()] = mh.habit.toString();
+                    }
                 });
             }
 
@@ -132,6 +141,11 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
                     
                     // Calculate habit-specific streak for this member
                     const linkedHabitId = groupMemberHabits[memberId];
+                    
+                    if (group.name === "Staked Club") {
+                         console.log(`[getUserGroups] checking Member: ${member.displayName} (${memberId}). LinkedHabitId found: ${linkedHabitId || 'NONE'}`);
+                    }
+
                     if (linkedHabitId && habitMap[linkedHabitId]) {
                         // Use calculateHabitStreak instead of personal streak
                         member.streak = calculateHabitStreak(habitMap[linkedHabitId].completions);

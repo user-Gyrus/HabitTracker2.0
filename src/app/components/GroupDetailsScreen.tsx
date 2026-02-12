@@ -1,12 +1,12 @@
 // ... (imports remain the same)
 import { useState, useEffect } from "react";
-import { ArrowLeft, MoreHorizontal, User, Trophy, Flame, Play, Clock, ChevronRight, UserPlus, LogOut, X, Copy, Share2, MessageCircle, Link as LinkIcon, Trash2, Users, Check, Plus } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, ChevronRight, UserPlus, LogOut, X, Copy, Share2, MessageCircle, Trash2, Users, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import api from "../../lib/api";
 
 // ... (types and interfaces remain the same)
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 interface GroupDetailsScreenProps {
   onNavigate: (screen: Screen, data?: any) => void; // Updated to accept optional data
@@ -24,10 +24,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [showPendingRequests, setShowPendingRequests] = useState(false);
   
-  // Habit Linking State
-  const [showHabitSelector, setShowHabitSelector] = useState(false);
-  const [userHabits, setUserHabits] = useState<any[]>([]);
-  const [linkingHabit, setLinkingHabit] = useState(false);
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -48,27 +45,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
         url: shareUrl,
      };
 
-    const handleApproveRequest = async (userId: string) => {
-        try {
-            await api.post("/groups/approve-request", { groupId: group._id, userId });
-            toast.success("Request approved!");
-            fetchGroupDetails(); // Refresh group data
-        } catch (error: any) {
-            console.error("Failed to approve request", error);
-            toast.error(error.response?.data?.message || "Failed to approve request");
-        }
-    };
 
-    const handleDenyRequest = async (userId: string) => {
-        try {
-            await api.post("/groups/deny-request", { groupId: group._id, userId });
-            toast.success("Request denied");
-            fetchGroupDetails(); // Refresh group data
-        } catch (error: any) {
-            console.error("Failed to deny request", error);
-            toast.error(error.response?.data?.message || "Failed to deny request");
-        }
-    };
 
      try {
        if (navigator.share) {
@@ -138,17 +115,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
     fetchGroupDetails();
   }, [groupId]);
 
-  const handleOpenHabitSelector = async () => {
-      setShowHabitSelector(true);
-      try {
-          // Fetch user habits if not already loaded (could optimize context later)
-          const res = await api.get('/habits');
-          setUserHabits(res.data);
-      } catch (error) {
-          console.error("Failed to fetch habits", error);
-          toast.error("Failed to load your habits");
-      }
-  };
+
 
 
   const handleCreateSquadHabit = async () => {
@@ -178,23 +145,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
      }
   };
 
-  const handleLinkHabit = async (habitId: string) => {
-      setLinkingHabit(true);
-      try {
-          await api.post('/groups/link-habit', {
-              groupId,
-              habitId
-          });
-          toast.success("Habit linked successfully!");
-          setShowHabitSelector(false);
-          fetchGroupDetails(); // Refresh to show new linked habit
-      } catch (error: any) {
-          console.error("Failed to link habit", error);
-          toast.error(error.response?.data?.message || "Failed to link habit");
-      } finally {
-          setLinkingHabit(false);
-      }
-  };
+
 
   const handleApproveRequest = async (userId: string) => {
       try {
@@ -237,10 +188,12 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       );
   }
 
-  // Calculate Progress from user's linked habit completions
-  // Progress = User's habit completions / Habit duration  
-  const progress = group.myLinkedHabit?.progress || 0;
-  
+  // Calculate Campaign Day (Days Running)
+  const startDate = group.startDate ? new Date(group.startDate) : new Date(group.createdAt);
+  const now = new Date();
+  const diffTime = now.getTime() - startDate.getTime();
+  const daysRunning = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
   // Use isCreator from API response (database is source of truth)
   const isCreator = group.isCreator || false;
 
@@ -346,7 +299,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                             cx="40" cy="40" r="34" 
                             stroke="url(#progressGradient)" strokeWidth="5" fill="transparent" 
                             strokeDasharray={213} 
-                            strokeDashoffset={213 - (213 * (progress / group.duration))} 
+                            strokeDashoffset={213 - (213 * (Math.min(daysRunning / group.duration, 1) || 0))} 
                             strokeLinecap="round" 
                             className="transition-all duration-500"
                         />
@@ -358,12 +311,57 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                         </defs>
                     </svg>
                     <div className="absolute flex flex-col items-center justify-center">
-                        <span className="text-xs font-black bg-gradient-to-br from-primary to-orange-600 bg-clip-text text-transparent">{progress}</span>
-                        <span className="text-[8px] text-muted-foreground">/ {group.duration}</span>
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Day</span>
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-lg font-black bg-gradient-to-br from-primary to-orange-600 bg-clip-text text-transparent">{daysRunning}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">/ {group.duration}</span>
+                        </div>
                     </div>
               </div>
           </div>
       </div>
+      
+      {/* POT SHARE SECTION (Staked Squads Only) */}
+      {group.groupType === 'staked' && group.stakeAmount && (
+        <div className="mb-8 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/20 via-yellow-500/10 to-transparent blur-xl"></div>
+            <div className="bg-card-bg/50 backdrop-blur-md border border-yellow-500/30 rounded-3xl p-6 relative z-10 shadow-[0_0_20px_rgba(234,179,8,0.05)]">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xs font-bold text-yellow-500 uppercase tracking-widest flex items-center gap-2">
+                        <span className="text-lg">💰</span> Pot Share
+                    </h2>
+                    <span className="bg-yellow-500/20 text-yellow-500 text-[10px] font-bold px-2 py-1 rounded-md border border-yellow-500/20">
+                        STAKED
+                    </span>
+                </div>
+                
+                <div className="flex items-end justify-between">
+                    <div>
+                        <p className="text-muted-foreground text-xs font-medium mb-1">Your Projected Share</p>
+                        <div className="text-4xl font-black text-foreground tracking-tight flex items-baseline gap-1">
+                           <span className="text-yellow-500">₹</span>
+                           {(() => {
+                               const totalPot = group.stakeAmount * group.members.length;
+                               const survivors = group.members.filter((m: any) => (m.streak || 0) > 0).length;
+                               const share = survivors > 0 ? Math.floor(totalPot / survivors) : 0;
+                               return share.toLocaleString();
+                           })()}
+                        </div>
+                    </div>
+                     <div className="text-right">
+                         <p className="text-muted-foreground text-[10px] font-medium mb-1">Total Pool</p>
+                         <p className="text-lg font-bold text-muted-foreground/80">
+                             ₹{(group.stakeAmount * group.members.length).toLocaleString()}
+                         </p>
+                     </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2 text-[10px] text-yellow-600/80 bg-yellow-500/5 p-2 rounded-lg">
+                    <Users size={12} />
+                    <span>Based on {group.members.filter((m: any) => (m.streak || 0) > 0).length} active survivors</span>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Pending Requests */}
       <div className="mb-8">
@@ -511,31 +509,49 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       <div className="mb-8">
           <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 px-1">Squad Members</h2>
           <div className="bg-gradient-to-br from-card-bg to-card-bg/50 border border-card-border rounded-3xl p-2 divide-y divide-card-border/50 shadow-lg">
-              {group.members.map((member: any, index: number) => (
-                   <div key={member._id} className="flex items-center justify-between p-4 relative group hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all rounded-2xl">
+              {group.members.map((member: any, index: number) => {
+                  const isDroppedOut = group.groupType === 'staked' && (member.streak || 0) === 0;
+                  
+                  return (
+                   <div key={member._id} className={`flex items-center justify-between p-4 relative group transition-all rounded-2xl border border-transparent
+                       ${isDroppedOut ? 'opacity-60 grayscale hover:opacity-80' : 'hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent'}`}>
+                        
                         <div className="flex items-center gap-4 flex-1">
                             <div className="relative flex-shrink-0">
-                                <span className={`text-sm font-black ${index === 0 ? "text-yellow-500" : index === 1 ? "text-orange-500" : index === 2 ? "text-slate-400" : "text-muted-foreground/50"}`}>
-                                    {index + 1}
+                                <span className={`text-sm font-black ${
+                                    isDroppedOut ? "text-red-500" :
+                                    index === 0 ? "text-yellow-500" : 
+                                    index === 1 ? "text-orange-500" : 
+                                    index === 2 ? "text-slate-400" : "text-muted-foreground/50"
+                                }`}>
+                                    {isDroppedOut ? "💀" : index + 1}
                                 </span>
                             </div>
                             <div className="relative flex-shrink-0">
-                                <div className={`w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-base border-2 transition-all shadow-md ${
+                                <div className={`w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-base border-2 transition-all shadow-md relative overflow-hidden ${
+                                    isDroppedOut ? 'from-zinc-700 to-zinc-800 border-red-500/30' :
                                     index === 0 ? 'from-yellow-400 to-orange-500 border-yellow-500/30 shadow-yellow-500/20' :
                                     index === 1 ? 'from-orange-400 to-red-500 border-orange-500/30 shadow-orange-500/20' :
                                     index === 2 ? 'from-slate-300 to-slate-400 border-slate-400/30 shadow-slate-400/20' :
                                     'from-muted to-muted/50 border-transparent group-hover:border-primary/20'
                                 }`}>
                                     {member.avatar || member.displayName?.charAt(0).toUpperCase() || "?"}
+                                    
+                                    {isDroppedOut && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <div className="w-full h-[2px] bg-red-500 rotate-45 absolute"></div>
+                                        </div>
+                                    )}
                                 </div>
-                                {index === 0 && <span className="absolute -top-1 -right-1 text-base drop-shadow-lg">👑</span>}
+                                {!isDroppedOut && index === 0 && <span className="absolute -top-1 -right-1 text-base drop-shadow-lg">👑</span>}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                    <h3 className="font-bold text-sm text-foreground truncate">
+                                    <h3 className={`font-bold text-sm truncate ${isDroppedOut ? "text-muted-foreground line-through decoration-red-500/50" : "text-foreground"}`}>
                                         {member.displayName}
                                     </h3>
-                                    {member.linkedHabit && <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0">Active</span>}
+                                    {member.linkedHabit && !isDroppedOut && <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0">Active</span>}
+                                    {isDroppedOut && <span className="text-[9px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide flex-shrink-0">Eliminated</span>}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground truncate">
                                     {member.linkedHabit ? (member.linkedHabit.microIdentity || member.linkedHabit.name) : "No habit linked"}
@@ -544,11 +560,12 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
                         </div>
                         
                         <div className="text-right flex-shrink-0 ml-3">
-                            <div className="text-sm font-black text-foreground">{member.streak || 0}d</div>
+                            <div className={`text-sm font-black ${isDroppedOut ? "text-red-500" : "text-foreground"}`}>{member.streak || 0}d</div>
                             <div className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Streak</div>
                         </div>
                    </div>
-              ))}
+               );
+              })}
           </div>
           <p className="text-[9px] text-center text-muted-foreground mt-3 opacity-60">Rank reflects consecutive streak days in this group.</p>
       </div>
@@ -566,57 +583,7 @@ export function GroupDetailsScreen({ onNavigate, groupId }: GroupDetailsScreenPr
       </div>
 
       {/* HABIT SELECTOR MODAL */}
-      {showHabitSelector && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center px-5">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowHabitSelector(false)} />
-              
-              <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-                   <button 
-                      onClick={() => setShowHabitSelector(false)}
-                      className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-                   >
-                      <X size={20} />
-                   </button>
 
-                   <div className="text-center mb-4">
-                       <h3 className="text-xl font-bold text-foreground">Select Habit</h3>
-                       <p className="text-xs text-muted-foreground">Choose a habit to link to {group.name}</p>
-                   </div>
-                   
-                   <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                       {userHabits.length === 0 ? (
-                           <div className="text-center py-8 text-muted-foreground">
-                               <p className="text-sm">No habits found.</p>
-                               <button onClick={() => { setShowHabitSelector(false); onNavigate('create'); }} className="text-primary text-xs font-bold mt-2 underline">Create one now</button>
-                           </div>
-                       ) : (
-                           userHabits.map((habit) => (
-                               <button
-                                  key={habit._id}
-                                  onClick={() => handleLinkHabit(habit._id)}
-                                  disabled={linkingHabit}
-                                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 hover:bg-secondary/60 border border-transparent hover:border-primary/30 transition-all text-left"
-                               >
-                                   <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center text-xl">
-                                       {/* Use first char or generic icon */}
-                                       {habit.emoji || "🔥"} 
-                                   </div>
-                                   <div>
-                                       <h4 className="font-bold text-sm text-foreground">{habit.name}</h4>
-                                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{habit.microIdentity || "Habit"}</p>
-                                   </div>
-                                   {group.myLinkedHabit?._id === habit._id && (
-                                       <div className="ml-auto text-primary">
-                                            <Check size={16} />
-                                       </div>
-                                   )}
-                               </button>
-                           ))
-                       )}
-                   </div>
-              </div>
-          </div>
-      )}
 
       {/* INVITE SQUAD MODAL */}
       {showInviteModal && group && (

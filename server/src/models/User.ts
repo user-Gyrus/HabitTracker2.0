@@ -21,6 +21,15 @@ export interface IUser {
   };
   matchPassword: (enteredPassword: string) => Promise<boolean>;
   checkStreak: () => Promise<void>;
+  fireReactionsReceived: {
+    fromUser: any;
+    fromName: string;
+    date: string;
+  }[];
+  fireReactionsSent: {
+    toUser: any;
+    date: string;
+  }[];
 }
 
 const UserSchema = new Schema<IUser>(
@@ -78,6 +87,25 @@ const UserSchema = new Schema<IUser>(
         p256dh: { type: String },
         auth: { type: String },
       },
+    },
+    fireReactionsReceived: {
+      type: [
+        {
+          fromUser: { type: Schema.Types.ObjectId, ref: "User" },
+          fromName: { type: String },
+          date: { type: String }, // YYYY-MM-DD
+        },
+      ],
+      default: [],
+    },
+    fireReactionsSent: {
+      type: [
+        {
+          toUser: { type: Schema.Types.ObjectId, ref: "User" },
+          date: { type: String }, // YYYY-MM-DD
+        },
+      ],
+      default: [],
     },
   },
   { timestamps: true }

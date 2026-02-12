@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  Fingerprint,
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
@@ -27,7 +28,7 @@ import {
 import { API_URL, IS_DEVELOPMENT } from "../../config";
 import * as AdminApi from "../../lib/adminApi";
 
-type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 interface ProfileScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -716,6 +717,18 @@ const handleUseFreeze = async () => {
                   <LogOut size={20} className="text-blue-500" />
                 </div>
                 <span className="text-foreground font-medium">Logout</span>
+              </div>
+              <ChevronRight size={20} className="text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => onNavigate("privacy-policy")}
+              className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
+                  <Fingerprint size={20} className="text-purple-500" />
+                </div>
+                <span className="text-foreground font-medium">Privacy Policy</span>
               </div>
               <ChevronRight size={20} className="text-muted-foreground" />
             </button>

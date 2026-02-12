@@ -24,6 +24,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import UpdateNotification from "./components/UpdateNotification";
 import { HabitsScreenSkeleton } from "./components/LoadingSkeletons";
+import { PrivacyPolicyScreen } from "./components/PrivacyPolicyScreen";
 
 type Screen =
   | "habits"
@@ -33,7 +34,8 @@ type Screen =
   | "groups"
   | "create-group"
   | "group-details"
-  | "invite-friend";
+  | "invite-friend"
+  | "privacy-policy";
 
 interface Habit {
   _id: string;
@@ -70,6 +72,7 @@ function AppContent() {
   const { showAchievement } = useAchievement();
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [showProfileModal, setShowProfileModal] = useState(false); // New state for global modal
+  const [viewingPrivacy, setViewingPrivacy] = useState(false); // For unauthenticated access
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -621,7 +624,16 @@ function AppContent() {
     if (!onboardingComplete) {
       return <OnboardingScreen onComplete={handleOnboardingComplete} />;
     }
-    return <LoginScreen onLogin={handleLogin} initialMode={authMode} />;
+    if (viewingPrivacy) {
+      return <PrivacyPolicyScreen onBack={() => setViewingPrivacy(false)} />;
+    }
+    return (
+      <LoginScreen
+        onLogin={handleLogin}
+        initialMode={authMode}
+        onViewPrivacyPolicy={() => setViewingPrivacy(true)}
+      />
+    );
   }
 
   return (
@@ -754,6 +766,12 @@ function AppContent() {
                 />
               </motion.div>
             )}
+
+            {currentScreen === "privacy-policy" && (
+              <motion.div key="privacy-policy">
+                <PrivacyPolicyScreen onBack={() => setCurrentScreen("profile")} />
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
 
@@ -765,7 +783,10 @@ function AppContent() {
         {/* Global Profile Modal */}
         {showProfileModal && (
           <ProfileScreen
-            onNavigate={setCurrentScreen}
+            onNavigate={(screen) => {
+              setCurrentScreen(screen);
+              setShowProfileModal(false);
+            }}
             isModal={true}
             onClose={() => setShowProfileModal(false)}
             updateSession={updateSession}

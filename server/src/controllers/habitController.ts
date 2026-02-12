@@ -199,13 +199,22 @@ export const syncStreakInternal = async (userId: string) => {
         }
     }
 
+    // Check for changes in Ember Progress
+    if (streakDoc.completionPercentage !== Math.round(completionPercentage)) {
+        streakDoc.completionPercentage = Math.round(completionPercentage);
+        streakUpdated = true;
+    }
+
     if (streakDoc.streakCount !== currentStreak) {
         streakDoc.streakCount = currentStreak;
         streakUpdated = true;
     }
     
     // Update streak state
-    streakDoc.streakState = streakState;
+    if (streakDoc.streakState !== streakState) {
+        streakDoc.streakState = streakState;
+        streakUpdated = true;
+    }
 
     if (streakUpdated || historyChanged) {
         await streakDoc.save();

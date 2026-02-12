@@ -5,6 +5,7 @@ import { generateFriendCode } from "../utils/generateFriendCode";
 import Streak from "../models/Streak"; // New Streak model
 import { calculateCurrentStreak } from "../utils/streakUtils";
 import { OAuth2Client } from "google-auth-library";
+import { getISTDate } from "../utils/dateUtils";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -37,6 +38,10 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
     const { syncStreakInternal } = require("./habitController");
     const streakInfo = await syncStreakInternal(user._id);
 
+    // Filter reactions
+    const todayIST = getISTDate();
+    const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
+
     res.json({
       _id: user._id,
       username: user.username,
@@ -51,6 +56,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
       emberDays: streakInfo.emberDays,
       completionPercentage: streakInfo.completionPercentage,
       token: generateToken(user._id.toString()),
+      receivedReactions: receivedReactions
     });
   } else {
     res.status(401).json({ message: "Invalid email or password" });
@@ -89,6 +95,9 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         frozenDays: []
     });
 
+    const todayIST = getISTDate();
+    const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
+
     res.status(201).json({
       _id: user._id,
       username: user.username,
@@ -103,6 +112,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       emberDays: streakDoc.emberDays,
       completionPercentage: streakDoc.completionPercentage,
       token: generateToken(user._id.toString()),
+      receivedReactions: receivedReactions
     });
   } else {
     res.status(400).json({ message: "Invalid user data" });
@@ -120,6 +130,10 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
     const { syncStreakInternal } = require("./habitController");
     const streakInfo = await syncStreakInternal(user._id);
 
+    // Filter reactions
+    const todayIST = getISTDate();
+    const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
+
     res.json({
       _id: user._id,
       username: user.username,
@@ -130,8 +144,12 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
       streakFreezes: streakInfo.streakFreezes,
       lastCompletedDate: streakInfo.lastCompletedDate,
       friend_code: user.friendCode,
-      streakState: streakInfo.streakState, // Added return
-      emberDays: streakInfo.emberDays // Added return
+      streakState: streakInfo.streakState,
+      emberDays: streakInfo.emberDays,
+      frozenDays: streakInfo.frozenDays,
+      streakHistory: streakInfo.streakHistory,
+      completionPercentage: streakInfo.completionPercentage,
+      receivedReactions: receivedReactions
     });
   } else {
     res.status(404).json({ message: "User not found" });
@@ -162,24 +180,13 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
 
     const updatedUser = await user.save();
     
-    // Fetch latest streak
-    let streakDoc = await Streak.findOne({ user: updatedUser._id });
-    
-    // Recalculate streak
-    let currentStreak = 0;
-    let streakFreezes = 0;
-    if (streakDoc) {
-        currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays);
-        streakFreezes = streakDoc.streakFreezes || 0;
-        
-        if (streakDoc.streakCount !== currentStreak) {
-            streakDoc.streakCount = currentStreak;
-            await streakDoc.save();
-        }
-    } else {
-        // Should not happen, but safe fallback
-        currentStreak = 0;
-    }
+    // Recalculate streak using centralized logic
+    const { syncStreakInternal } = require("./habitController");
+    const streakInfo = await syncStreakInternal(user._id);
+
+    // Filter reactions
+    const todayIST = getISTDate();
+    const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
 
     res.json({
       _id: updatedUser._id,
@@ -187,9 +194,16 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
       displayName: updatedUser.displayName,
       friendCode: updatedUser.friendCode,
       email: updatedUser.email,
-      streak: currentStreak,
-      streakFreezes: streakFreezes,
+      streak: streakInfo.streak,
+      streakFreezes: streakInfo.streakFreezes,
+      lastCompletedDate: streakInfo.lastCompletedDate,
+      streakHistory: streakInfo.streakHistory,
+      streakState: streakInfo.streakState,
+      emberDays: streakInfo.emberDays,
+      frozenDays: streakInfo.frozenDays,
+      completionPercentage: streakInfo.completionPercentage,
       token: generateToken(updatedUser._id.toString()),
+      receivedReactions: receivedReactions
     });
   } else {
     res.status(404).json({ message: "User not found" });
@@ -263,6 +277,10 @@ export const googleMobileLogin = async (req: Request, res: Response): Promise<vo
       await streakDoc.save();
     }
 
+    // Filter reactions
+    const todayIST = getISTDate();
+    const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
+
     res.json({
       _id: user._id,
       username: user.username,
@@ -277,6 +295,7 @@ export const googleMobileLogin = async (req: Request, res: Response): Promise<vo
       emberDays: streakDoc.emberDays,
       completionPercentage: streakDoc.completionPercentage,
       token: generateToken(user._id.toString()),
+      receivedReactions: receivedReactions
     });
 
   } catch (error: any) {
