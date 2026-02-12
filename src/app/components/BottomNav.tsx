@@ -1,6 +1,6 @@
 import { Flame, Users } from 'lucide-react';
 
-type Screen = 'habits' | 'create' | 'profile' | 'social';
+type Screen = 'habits' | 'create' | 'profile' | 'social' | 'groups' | 'create-group' | 'group-details' | 'invite-friend' | 'privacy-policy';
 
 interface BottomNavProps {
   currentScreen: Screen;
@@ -20,7 +20,7 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
           <Flame size={24} className={currentScreen === 'habits' ? 'fill-primary' : ''} />
           <span className="text-xs">Habits</span>
         </button>
-        
+
         <button
           onClick={() => onNavigate('social')}
           className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
@@ -29,6 +29,16 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
         >
           <Users size={24} />
           <span className="text-xs">Social</span>
+        </button>
+
+        <button
+          onClick={() => onNavigate('groups')}
+          className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
+            currentScreen === 'groups' ? 'text-primary' : 'text-muted-foreground'
+          }`}
+        >
+          <Users size={24} className={currentScreen === 'groups' ? 'fill-primary/20' : ''} />
+          <span className="text-xs">Groups</span>
         </button>
       </div>
     </nav>

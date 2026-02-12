@@ -138,6 +138,10 @@ router.get("/me", protect, async (req: any, res) => {
             streakCount = calculatedStreak;
         }
 
+        // Filter for today's reactions
+        const todayIST = getISTDate();
+        const receivedReactions = user.fireReactionsReceived ? user.fireReactionsReceived.filter((r: any) => r.date === todayIST) : [];
+
         res.json({
             _id: user._id,
             username: user.username,
@@ -150,7 +154,8 @@ router.get("/me", protect, async (req: any, res) => {
             streakHistory: streakHistory, // New field for calendar
             streakFreezes: streakDoc.streakFreezes || 0, // Add freeze count
             frozenDays: streakDoc.frozenDays || [], // Add frozen days
-            lastCompletedDate: lastCompletedDate
+            lastCompletedDate: lastCompletedDate,
+            receivedReactions: receivedReactions // Add this
         });
     } catch (error) {
         console.error("Error in /me:", error);

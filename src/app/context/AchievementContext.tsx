@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
-import { AchievementToast, type AchievementType } from '../components/ui/AchievementToast';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  AchievementToast,
+  type AchievementType,
+} from "../components/ui/AchievementToast";
 
 interface AchievementData {
   title: string;
@@ -12,19 +20,21 @@ interface AchievementContextType {
   showAchievement: (data: AchievementData) => void;
 }
 
-const AchievementContext = createContext<AchievementContextType | undefined>(undefined);
+const AchievementContext = createContext<AchievementContextType | undefined>(
+  undefined,
+);
 
-export const AchievementProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AchievementProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [visible, setVisible] = useState(false);
   const [currentData, setCurrentData] = useState<AchievementData | null>(null);
 
   const showAchievement = (data: AchievementData) => {
-    // If already showing one, you might want to queue it or just overwrite.
-    // Overwriting for "latest wins" feel for now.
     setVisible(false);
     setTimeout(() => {
-        setCurrentData(data);
-        setVisible(true);
+      setCurrentData(data);
+      setVisible(true);
     }, 100); // Small delay to allow reset animation if active
   };
 
@@ -52,7 +62,9 @@ export const AchievementProvider: React.FC<{ children: ReactNode }> = ({ childre
 export const useAchievement = () => {
   const context = useContext(AchievementContext);
   if (!context) {
-    throw new Error('useAchievement must be used within an AchievementProvider');
+    throw new Error(
+      "useAchievement must be used within an AchievementProvider",
+    );
   }
   return context;
 };

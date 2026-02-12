@@ -146,25 +146,39 @@ export const getFriends = async (req: any, res: Response, next: NextFunction): P
         const streakDocs = await Streak.find({ user: { $in: friendIds } });
 
         // Map streaks to a dictionary for O(1) lookup
-        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any, lastCompletedDateIST: string } } = {};
+        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any, lastCompletedDateIST: string, streakState?: string } } = {};
         streakDocs.forEach(doc => {
             streakMap[doc.user.toString()] = {
                 streakCount: doc.streakCount,
                 lastCompletedDate: doc.lastCompletedDate,
-                lastCompletedDateIST: doc.lastCompletedDateIST || ""
+                lastCompletedDateIST: doc.lastCompletedDateIST || "",
+                streakState: doc.streakState // Add this
             };
         });
 
+        // 0. Get Date
+        const { getISTDate } = require("../utils/dateUtils");
+        const todayIST = getISTDate();
+
         // Merge data
-        const friendsWithStreak = friendsList.map(f => ({
-            _id: f._id,
-            displayName: f.displayName,
-            username: f.username,
-            friendCode: f.friendCode,
-            streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
-            lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
-            lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null
-        }));
+        const friendsWithStreak = friendsList.map(f => {
+             // Check if current user has sent a reaction to this friend today
+             const hasReacted = user.fireReactionsSent.some(
+                (r: any) => r.toUser.toString() === f._id.toString() && r.date === todayIST
+             );
+             
+             return {
+                _id: f._id,
+                displayName: f.displayName,
+                username: f.username,
+                friendCode: f.friendCode,
+                streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
+                lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null,
+                lastCompletedDateIST: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDateIST : null,
+                streakState: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakState : 'extinguished',
+                hasReactedToday: hasReacted
+            };
+        });
 
         res.json(friendsWithStreak);
     } catch (error) {
@@ -213,17 +227,11 @@ export const getFriendHabits = async (req: any, res: Response, next: NextFunctio
 
         // Filter habits that are active for the target date
         const activeHabitsForDate = publicHabits.filter((h: any) => {
-            // A. Duration Check - only show habits within their duration period
+            // A. Duration Check - Based on COMPLETIONS, not calendar days
             if (h.duration) {
-                const created = new Date(h.createdAt);
-                const createdStr = created.toISOString().split('T')[0];
-                const createdDateOnly = new Date(createdStr);
-                const targetDateOnly = new Date(targetDate);
-                
-                const diffTime = targetDateOnly.getTime() - createdDateOnly.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays >= h.duration) return false;
+                const completionCount = h.completions ? h.completions.length : 0;
+                // If habit has been completed >= duration times, it's finished
+                if (completionCount >= h.duration) return false;
             }
 
             // B. Active Day Check - only show habits scheduled for this day
@@ -253,6 +261,146 @@ export const getFriendHabits = async (req: any, res: Response, next: NextFunctio
             date: targetDate,
             habits: habitsWithCompletion
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get suggested friends (friends of friends)
+// @route   GET /api/friends/suggestions
+// @access  Private
+export const getSuggestedFriends = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const currentUserId = req.user._id;
+        
+        // Get current user with friends populated
+        const currentUser = await User.findById(currentUserId).populate("friends", "_id");
+        
+        if (!currentUser) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // Get IDs of current user's friends
+        const friendIds = currentUser.friends.map((f: any) => f._id.toString());
+        
+        // Find friends of friends
+        const friendsOfFriends = await User.find({
+            _id: { $in: friendIds }
+        }).populate("friends", "_id displayName username friendCode");
+
+        // Aggregate potential suggestions with mutual friend counts
+        const suggestionMap = new Map<string, { user: any; mutualCount: number }>();
+
+        friendsOfFriends.forEach((friend: any) => {
+            friend.friends.forEach((potentialFriend: any) => {
+                const potentialId = potentialFriend._id.toString();
+                
+                // Exclude self and existing friends
+                if (
+                    potentialId !== currentUserId.toString() &&
+                    !friendIds.includes(potentialId)
+                ) {
+                    if (suggestionMap.has(potentialId)) {
+                        suggestionMap.get(potentialId)!.mutualCount++;
+                    } else {
+                        suggestionMap.set(potentialId, {
+                            user: potentialFriend,
+                            mutualCount: 1
+                        });
+                    }
+                }
+            });
+        });
+
+        // Convert to array and sort by mutual friend count
+        const suggestions = Array.from(suggestionMap.values())
+            .sort((a, b) => b.mutualCount - a.mutualCount)
+            .slice(0, 5); // Top 5 suggestions
+
+        // Fetch streak data for suggestions
+        const suggestionIds = suggestions.map(s => s.user._id);
+        const streakDocs = await Streak.find({ user: { $in: suggestionIds } });
+        
+        const streakMap: { [key: string]: number } = {};
+        streakDocs.forEach(doc => {
+            streakMap[doc.user.toString()] = doc.streakCount;
+        });
+
+        // Format response
+        const formattedSuggestions = suggestions.map(s => ({
+            _id: s.user._id,
+            displayName: s.user.displayName,
+            username: s.user.username,
+            friendCode: s.user.friendCode,
+            streak: streakMap[s.user._id.toString()] || 0,
+            mutualFriends: s.mutualCount
+        }));
+
+        res.json(formattedSuggestions);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Send a fire reaction to a friend (Daily)
+// @route   POST /api/friends/react
+// @access  Private
+export const sendFireReaction = async (req: any, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const { friendId } = req.body;
+        const currentUserId = req.user._id;
+
+        // 1. Get current date (IST for consistency with streaks)
+        const { getISTDate } = require("../utils/dateUtils");
+        const todayIST = getISTDate();
+
+        // 2. Find sender and receiver
+        const sender = await User.findById(currentUserId);
+        const receiver = await User.findById(friendId);
+
+        if (!sender || !receiver) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        // 3. Verify friendship
+        if (!sender.friends.includes(friendId)) {
+            res.status(403).json({ message: "You can only react to friends" });
+            return;
+        }
+
+        // 4. Check if already reacted today
+        const alreadyReacted = sender.fireReactionsSent.some(
+            (r: any) => r.toUser.toString() === friendId && r.date === todayIST
+        );
+
+        if (alreadyReacted) {
+             // Idempotent success or toggle off? Requirement says "reset every day", implies one-way?
+             // "Users may choose to send a single fire reaction... or not react at all."
+             // Usually reactions can be untoggled, but "sent a single fire reaction" sounds one-off.
+             // I'll assume idempotent success.
+             res.status(200).json({ message: "Already reacted today" });
+             return;
+        }
+
+        // 5. Add reaction
+        sender.fireReactionsSent.push({
+            toUser: friendId,
+            date: todayIST
+        });
+
+        receiver.fireReactionsReceived.push({
+            fromUser: sender._id,
+            fromName: sender.displayName,
+            date: todayIST
+        });
+
+        await sender.save();
+        await receiver.save();
+
+        res.status(200).json({ message: "Fire reaction sent!" });
+
     } catch (error) {
         next(error);
     }

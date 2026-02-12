@@ -21,6 +21,7 @@ export interface Habit {
   completed_today: boolean;
   duration: number; // Added
   completionsCount: number; // Added
+  associatedGroup?: string; // Squad link
 }
 
 interface Quote {
@@ -59,6 +60,7 @@ interface HabitsScreenProps {
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
   streak?: number;
   streakHistory?: string[];
+  frozenDays?: string[];
   streakState?: 'active' | 'frozen' | 'extinguished';
   completionPercentage?: number;
 }
@@ -72,18 +74,10 @@ export function HabitsScreen({
   onNavigate,
   streak = 0,
   streakHistory = [],
+  frozenDays = [],
   streakState = 'extinguished',
   completionPercentage = 0,
 }: HabitsScreenProps) {
-  // Debug logging
-  console.log('🔥 Streak State Debug:', {
-    streakState,
-    completionPercentage,
-    streak,
-    habitsCount: habits.length,
-    completedCount: habits.filter(h => h.completed_today).length
-  });
-
   // Select a random quote only once on mount
   const currentQuote = useMemo(() => {
     const randomIndex = Math.floor(Math.random() * MENTAL_MODELS.length);
@@ -95,6 +89,11 @@ export function HabitsScreen({
 
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
   const [showStreakTooltip, setShowStreakTooltip] = useState(false);
+
+  // Client-side Ember Calculation
+  const totalHabits = habits.length;
+  const completingHabits = habits.filter(h => h.completed_today).length;
+  const localCompletionPercentage = totalHabits > 0 ? Math.round((completingHabits / totalHabits) * 100) : 0;
 
   return (
     <div className="px-5 pb-28">
@@ -114,9 +113,9 @@ export function HabitsScreen({
             {/* Left: Streak */}
             <div className="flex flex-col items-center justify-center gap-1 pr-4 border-r border-border/50 min-w-[80px]">
                 <div className="flex items-center gap-1 relative"
-                     onMouseEnter={() => completionPercentage > 0 && completionPercentage < 100 && setShowStreakTooltip(true)}
+                     onMouseEnter={() => localCompletionPercentage > 0 && localCompletionPercentage < 100 && setShowStreakTooltip(true)}
                      onMouseLeave={() => setShowStreakTooltip(false)}
-                     onTouchStart={() => completionPercentage > 0 && completionPercentage < 100 && setShowStreakTooltip(true)}
+                     onTouchStart={() => localCompletionPercentage > 0 && localCompletionPercentage < 100 && setShowStreakTooltip(true)}
                      onTouchEnd={() => setShowStreakTooltip(false)}
                 >
                     <span className="text-4xl sm:text-5xl font-bold text-foreground leading-none">{streakDays}</span>
@@ -124,9 +123,9 @@ export function HabitsScreen({
                     {/* Percentage-Filled Flame Icon */}
                     <div 
                         className="relative w-8 h-8 flex items-center justify-center"
-                        onMouseEnter={() => completionPercentage > 0 && completionPercentage < 100 && setShowStreakTooltip(true)}
+                        onMouseEnter={() => localCompletionPercentage > 0 && localCompletionPercentage < 100 && setShowStreakTooltip(true)}
                         onMouseLeave={() => setShowStreakTooltip(false)}
-                        onTouchStart={() => completionPercentage > 0 && completionPercentage < 100 && setShowStreakTooltip(true)}
+                        onTouchStart={() => localCompletionPercentage > 0 && localCompletionPercentage < 100 && setShowStreakTooltip(true)}
                         onTouchEnd={() => setShowStreakTooltip(false)}
                     >
                         <svg
@@ -138,12 +137,12 @@ export function HabitsScreen({
                             className="relative transition-all duration-300"
                         >
                             <defs>
-                                <linearGradient id={`flameGradient-${completionPercentage}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                <linearGradient id={`flameGradient-${localCompletionPercentage}`} x1="0%" y1="0%" x2="0%" y2="100%">
                                     {/* Top portion (gray when incomplete) */}
                                     <stop offset="0%" stopColor="#9CA3AF" stopOpacity="0.3" />
                                     {/* Transition point */}
-                                    <stop offset={`${100 - completionPercentage}%`} stopColor="#9CA3AF" stopOpacity="0.3" />
-                                    <stop offset={`${100 - completionPercentage}%`} stopColor="#F97316" stopOpacity="1" />
+                                    <stop offset={`${100 - localCompletionPercentage}%`} stopColor="#9CA3AF" stopOpacity="0.3" />
+                                    <stop offset={`${100 - localCompletionPercentage}%`} stopColor="#F97316" stopOpacity="1" />
                                     {/* Bottom portion (orange when filled) */}
                                     <stop offset="100%" stopColor="#ea580c" stopOpacity="1" />
                                 </linearGradient>
@@ -151,18 +150,18 @@ export function HabitsScreen({
                             
                             <path
                                 d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
-                                fill={`url(#flameGradient-${completionPercentage})`}
-                                stroke={completionPercentage > 0 ? "#F97316" : "#9CA3AF"}
+                                fill={`url(#flameGradient-${localCompletionPercentage})`}
+                                stroke={localCompletionPercentage > 0 ? "#F97316" : "#9CA3AF"}
                                 strokeWidth="0.5"
-                                strokeOpacity={completionPercentage > 0 ? "0.5" : "0.3"}
+                                strokeOpacity={localCompletionPercentage > 0 ? "0.5" : "0.3"}
                             />
                         </svg>
                     </div>
                     
                     {/* Tooltip - Updated to show percentage */}
-                    {showStreakTooltip && completionPercentage > 0 && completionPercentage < 100 && (
+                    {showStreakTooltip && localCompletionPercentage > 0 && localCompletionPercentage < 100 && (
                         <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-50 px-3 py-2 bg-card-bg border border-primary/30 rounded-xl shadow-lg text-xs text-foreground whitespace-nowrap">
-                            <div className="font-semibold text-primary mb-0.5">🔥 {completionPercentage}% Complete</div>
+                            <div className="font-semibold text-primary mb-0.5">🔥 {localCompletionPercentage}% Complete</div>
                             <div className="text-muted-foreground">Complete all habits to grow your fire</div>
                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-card-bg border-r border-b border-primary/30 rotate-45"></div>
                         </div>
@@ -187,6 +186,11 @@ export function HabitsScreen({
                     streakHistory.forEach(dateStr => completedDates.add(dateStr));
                 }
 
+                const frozenDates = new Set<string>();
+                if (frozenDays && frozenDays.length > 0) {
+                    frozenDays.forEach(dateStr => frozenDates.add(dateStr));
+                }
+
                 return Array.from({ length: 7 }).map((_, i) => {
                     const date = new Date(startOfWeek);
                     date.setDate(startOfWeek.getDate() + i);
@@ -204,6 +208,9 @@ export function HabitsScreen({
                     
                     // Logic for Green Checkmark (All Done)
                     let isStreakDay = completedDates.has(dateStr);
+                    
+                    // Check if this is a frozen day
+                    const isFrozenDay = frozenDates.has(dateStr);
                     
                     // Optimistic check for Today
                     if (isToday) {
@@ -229,10 +236,19 @@ export function HabitsScreen({
                                 {dayNum}
 
                                 {/* Green Tickmark for All Done */}
-                                {isStreakDay && (
+                                {isStreakDay && !isFrozenDay && (
                                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-card-bg flex items-center justify-center shadow-sm z-10">
                                         <svg width="8" height="6" viewBox="0 0 8 6" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                     </div>
+                                )}
+
+                                {/* Frozen Icon (Snowflake) for Streak Freeze Days */}
+                                {isFrozenDay && (
+                                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-cyan-500 rounded-full border-2 border-card-bg flex items-center justify-center shadow-sm z-10">
+                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2L12 22M12 2L9 5M12 2L15 5M12 22L9 19M12 22L15 19M2 12L22 12M2 12L5 9M2 12L5 15M22 12L19 9M22 12L19 15M5.64 5.64L18.36 18.36M5.64 5.64L7.05 7.05M18.36 18.36L16.95 16.95M5.64 18.36L18.36 5.64M5.64 18.36L7.05 16.95M18.36 5.64L16.95 7.05" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                         </svg>
                                      </div>
                                 )}
@@ -276,16 +292,20 @@ export function HabitsScreen({
             </div>
           </div>
         ) : (
-          habits.map((habit) => (
+          habits
+          .sort((a, b) => Number(a.completed_today) - Number(b.completed_today))
+          .map((habit) => (
             <HabitCard
               key={habit.id}
               habit={{
                 id: habit.id,
+                _id: habit.id,
                 name: habit.name,
                 microIdentity: habit.micro_identity ?? "",
                 progress: habit.completionsCount, // Now using completions count
                 goal: habit.duration, // Now using duration as the denominator
                 completed: habit.completed_today,
+                associatedGroup: habit.associatedGroup, // Pass squad link
               }}
               onComplete={() => onCompleteHabit(habit.id)}
               onUndo={() => onUndoHabit(habit.id)}

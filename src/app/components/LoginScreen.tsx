@@ -5,9 +5,10 @@ import { API_URL } from "../../config";
 type Props = {
   onLogin: (user: any) => void;
   initialMode?: "login" | "signup";
+  onViewPrivacyPolicy?: () => void;
 };
 
-export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
+export function LoginScreen({ onLogin, initialMode = "login", onViewPrivacyPolicy }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -239,9 +240,12 @@ export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="#" className="text-muted-foreground hover:text-foreground underline">
+              <button
+                onClick={onViewPrivacyPolicy}
+                className="text-muted-foreground hover:text-foreground underline"
+              >
                 Privacy Policy
-              </a>
+              </button>
             </p>
           )}
 

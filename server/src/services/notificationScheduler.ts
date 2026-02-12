@@ -1,6 +1,9 @@
 import cron from "node-cron";
 import webpush from "web-push";
 import User from "../models/User";
+import Streak from "../models/Streak";
+import Notification from "../models/Notification";
+import { getISTDate, getYesterdayISTDate } from "../utils/dateUtils";
 
 // Morning quotes (8:00 AM)
 const morningQuotes = [
@@ -160,6 +163,108 @@ export function scheduleAfternoonReminder() {
   console.log("Afternoon reminder scheduled for 2:00 PM IST");
 }
 
+// Generate Social Notifications (Incomplete Habits / Lost Streak)
+export async function generateDailyNotifications() {
+    try {
+        const currentIST = getISTDate();
+        const yesterdayIST = getYesterdayISTDate(currentIST); // "Yesterday" relative to now (00:05 AM) -> The day that just finished
+        const dayBeforeYesterdayIST = getYesterdayISTDate(yesterdayIST);
+
+        console.log(`Analyzing activity for Yesterday: ${yesterdayIST}`);
+
+        // Fetch all users with friends
+        const users = await User.find({ "friends.0": { $exists: true } }).populate("friends");
+
+        for (const user of users) {
+             // Skip if no friends
+             if (!user.friends || user.friends.length === 0) continue;
+
+            // For each friend of this user, check their status
+            for (const friend of user.friends) {
+                try {
+                    const friendStreak = await Streak.findOne({ user: friend._id });
+                    if (!friendStreak) continue;
+
+                    // 1. Check for INCOMPLETE HABITS
+                    // Condition: Friend has an ember day on "Yesterday"
+                    // Ember day means they did > 0% but < 100%
+                    if (friendStreak.emberDays && friendStreak.emberDays.includes(yesterdayIST)) {
+                        
+                        // Avoid duplicates
+                        const existing = await Notification.findOne({
+                            recipient: user._id as any,
+                            type: 'incomplete_habits',
+                            "data.friendId": friend._id.toString(),
+                            "data.date": yesterdayIST // One per day
+                        });
+
+                        if (!existing) {
+                            await Notification.create({
+                                recipient: user._id,
+                                type: 'incomplete_habits',
+                                data: {
+                                    friendId: friend._id,
+                                    friendName: friend.displayName,
+                                    friendCode: friend.friendCode,
+                                    date: yesterdayIST
+                                }
+                            });
+                        }
+                    }
+
+                    // 2. Check for LOST STREAK
+                    // Condition:
+                    // - No activity Yesterday (Not in history, Not in emberDays, Not in frozenDays)
+                    // - Was active DayBeforeYesterday (In history OR In emberDays? No, usually streak means History)
+                    // - Streak WAS > 0 (implied if DayBeforeYesterday was active 100%)
+                    
+                    const lastDate = friendStreak.lastCompletedDateIST;
+                    // Check if they completed yesterday
+                    const completedYesterday = friendStreak.history.includes(yesterdayIST);
+                    const frozenYesterday = friendStreak.frozenDays && friendStreak.frozenDays.includes(yesterdayIST);
+                    
+                    if (!completedYesterday && !frozenYesterday) {
+                        // They missed yesterday. Did they have a streak before that?
+                        // If their last completion was DayBeforeYesterday, then yes, they just lost it.
+                        if (lastDate === dayBeforeYesterdayIST && friendStreak.streakCount > 0) {
+                             
+                             // Avoid duplicates
+                            const existing = await Notification.findOne({
+                                recipient: user._id as any,
+                                type: 'lost_streak',
+                                "data.friendId": friend._id.toString(),
+                                "data.date": yesterdayIST
+                            });
+
+                            if (!existing) {
+                                await Notification.create({
+                                    recipient: user._id,
+                                    type: 'lost_streak',
+                                    data: {
+                                        friendId: friend._id,
+                                        friendName: friend.displayName,
+                                        friendCode: friend.friendCode,
+                                        count: friendStreak.streakCount,
+                                        date: yesterdayIST
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                } catch (err) {
+                    console.error(`Error processing friend ${friend._id} for user ${user._id}:`, err);
+                }
+            } // end for friends
+        } // end for users
+        
+        console.log(" Daily social notifications generated.");
+
+    } catch (error) {
+        console.error("Error generating daily notifications:", error);
+    }
+}
+
 // Initialize notification scheduler
 export function initializeNotificationScheduler() {
   // Configure web-push with VAPID keys
@@ -178,6 +283,17 @@ export function initializeNotificationScheduler() {
   scheduleMorningNotification();
   scheduleAfternoonReminder();
   scheduleNightNotification();
+
+  // Schedule Daily Social Notifications (00:05 AM IST)
+  cron.schedule("5 0 * * *", () => {
+    (async () => {
+      console.log(`[${new Date().toISOString()}] Generating daily social notifications...`);
+      await generateDailyNotifications();
+    })().catch(err => console.error("Error in daily social notifications:", err));
+  }, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  } as any);
 
   console.log("✅ Push notification scheduler initialized");
 }

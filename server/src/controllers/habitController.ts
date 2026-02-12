@@ -18,24 +18,34 @@ export const syncStreakInternal = async (userId: string) => {
     // 1. Fetch ALL active habits for this user
     const allHabits = await Habit.find({ user: userId } as any);
 
-    // 2. Check completion status for TODAY (IST)
+    // 2. Fetch or create streak document (needed for rest day logic)
+    let streakDoc: any = await Streak.findOne({ user: userId });
+    
+    // Initialize if missing
+    if (!streakDoc) {
+        const user = await User.findById(userId);
+         streakDoc = await Streak.create({
+             user: userId,
+             username: user?.username || "User",
+             streakCount: 0,
+             history: [],
+             emberDays: [],
+             streakState: 'extinguished'
+         });
+    }
+
+    // 3. Check completion status for TODAY (IST)
     // Filter habits that are applicable for today (Recurrence + Duration)
     const todayDateObj = new Date(todayIST);
     const dayOfWeek = todayDateObj.getDay(); // 0-6
     const todayNum = dayOfWeek === 0 ? 7 : dayOfWeek; // 1-7
 
     const activeHabitsForToday = allHabits.filter((h: any) => {
-        // A. Duration Check
+        // A. Duration Check - Based on COMPLETIONS, not calendar days
         if (h.duration) {
-             const created = new Date(h.createdAt);
-             const createdStr = created.toISOString().split('T')[0];
-             const createdDateOnly = new Date(createdStr);
-             const todayDateOnly = new Date(todayIST);
-             
-             const diffTime = todayDateOnly.getTime() - createdDateOnly.getTime();
-             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-             
-             if (diffDays >= h.duration) return false;
+             const completionCount = h.completions ? h.completions.length : 0;
+             // If habit has been completed >= duration times, it's finished
+             if (completionCount >= h.duration) return false;
         }
 
         // B. Active Day Check
@@ -44,7 +54,7 @@ export const syncStreakInternal = async (userId: string) => {
         return true;
     });
 
-    // 3. Calculate completion percentage
+    // 4. Calculate completion percentage
     let completionPercentage = 0;
     let completedCount = 0;
     let streakState: 'active' | 'frozen' | 'extinguished' = 'extinguished';
@@ -65,33 +75,37 @@ export const syncStreakInternal = async (userId: string) => {
         }
     } else {
         // If there are NO active habits for today (e.g. rest day), 
-        // We count it as "streak kept" ONLY if user actually has habits (Rest Day).
+        // Don't update streak state at all - rest days are neutral.
+        // This maintains the existing streak without incrementing it.
         if (allHabits.length > 0) {
-             streakState = 'active'; // Rest day counts as active
-             completionPercentage = 100;
+             // Rest day: Don't modify history, don't change state
+             // Just skip the update and return current streak info
+             const currentStreak = calculateCurrentStreak(streakDoc.history, streakDoc.frozenDays, streakDoc.emberDays || []);
+             
+             return {
+                 streak: currentStreak,
+                 streakUpdated: false,
+                 lastCompletedDate: streakDoc.lastCompletedDate,
+                 streakHistory: streakDoc.history || [],
+                 lastCompletedDateIST: streakDoc.lastCompletedDateIST,
+                 streakFreezes: streakDoc.streakFreezes,
+                 frozenDays: streakDoc.frozenDays,
+                 emberDays: streakDoc.emberDays || [],
+                 streakState: streakDoc.streakState,
+                 completionPercentage: 0,
+                 completedHabits: 0,
+                 totalHabits: 0
+             };
         }
     }
 
-    // 4. Update Streak Collection Logic
-    let streakDoc: any = await Streak.findOne({ user: userId });
+    // 5. Update Streak Collection Logic
+    // streakDoc is already fetched/initialized above.
     
-    // Initialize if missing
-    if (!streakDoc) {
-        const user = await User.findById(userId);
-         streakDoc = await Streak.create({
-             user: userId,
-             username: user?.username || "User",
-             streakCount: 0,
-             history: [],
-             emberDays: [],
-             streakState: 'extinguished'
-         });
-    }
-
     let streakUpdated = false;
     let historyChanged = false;
 
-    // 5. Update History and Ember Days Based on Completion Status
+    // 6. Update History and Ember Days Based on Completion Status
     if (streakState === 'active') {
          // Full Flame: Add today to history if not present
          if (!streakDoc.history.includes(todayIST)) {
@@ -170,7 +184,12 @@ export const syncStreakInternal = async (userId: string) => {
         streakDoc.awardedMilestones = [];
     }
     
-    if (currentStreak > oldStreak) {
+    // Only award milestones when:
+    // 1. Streak increased
+    // 2. History was actually modified (not just recalculation)
+    // 3. Milestone hasn't been awarded yet
+    // This prevents exploits from rapid toggling
+    if (currentStreak > oldStreak && historyChanged) {
         const currentMilestone = Math.floor(currentStreak / 7);
         
         // Only award if this milestone hasn't been awarded yet
@@ -180,13 +199,22 @@ export const syncStreakInternal = async (userId: string) => {
         }
     }
 
+    // Check for changes in Ember Progress
+    if (streakDoc.completionPercentage !== Math.round(completionPercentage)) {
+        streakDoc.completionPercentage = Math.round(completionPercentage);
+        streakUpdated = true;
+    }
+
     if (streakDoc.streakCount !== currentStreak) {
         streakDoc.streakCount = currentStreak;
         streakUpdated = true;
     }
     
     // Update streak state
-    streakDoc.streakState = streakState;
+    if (streakDoc.streakState !== streakState) {
+        streakDoc.streakState = streakState;
+        streakUpdated = true;
+    }
 
     if (streakUpdated || historyChanged) {
         await streakDoc.save();
@@ -222,7 +250,22 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
       days, 
       visibility,
       duration,
+      associatedGroup // New parameter
     } = req.body;
+
+    let finalDuration = duration;
+    let group: any = null;
+
+    // SQUAD LOGIC: If associated with a group, validation & sync
+    if (associatedGroup) {
+        group = await Group.findById(associatedGroup);
+        if (!group) {
+             res.status(404).json({ message: "Associated squad not found" });
+             return;
+        }
+        // Force duration to match group
+        finalDuration = group.duration;
+    }
 
     const habit = await Habit.create({
       user: req.user._id,
@@ -232,9 +275,27 @@ export const createHabit = async (req: any, res: Response): Promise<void> => {
       goal,
       activeDays: days,
       visibility,
-      duration,
+      duration: finalDuration,
       completions: [],
+      associatedGroup // Save the link
     });
+
+    // AUTO-LINK: Add to Group memberHabits
+    if (group) {
+        if (!group.memberHabits) {
+            group.memberHabits = [];
+        }
+        
+        // Remove old link if exists (though usually creating new means new link)
+        const existingIndex = group.memberHabits.findIndex((mh: any) => mh.user.toString() === req.user._id.toString());
+        if (existingIndex > -1) {
+            group.memberHabits[existingIndex].habit = habit._id;
+        } else {
+            group.memberHabits.push({ user: req.user._id, habit: habit._id });
+        }
+        
+        await group.save();
+    }
 
     // Sync streak (Adding a new habit might break "All Done" status)
     const streakInfo = await syncStreakInternal(req.user._id);

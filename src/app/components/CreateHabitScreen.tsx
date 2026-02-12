@@ -221,59 +221,72 @@ export function CreateHabitScreen({ onBack, onCreate, initialData }: CreateHabit
            <label className="block text-sm text-muted-foreground mb-3 uppercase tracking-wide">
             Duration
           </label>
-           <div className="bg-card-bg border border-card-border rounded-2xl p-6 flex flex-col items-center">
-             
-             {/* Large Input Display with Controls */}
-             <div className="flex items-center gap-6 mb-2">
-                <button
-                  onClick={() => setDuration(prev => Math.max(1, prev - 1))}
-                  className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors"
-                >
-                  <Minus size={18} />
-                </button>
+             {/* Duration Control (Locked if Squad Habit) */}
+             <div className="bg-card-bg border border-card-border rounded-2xl p-6 flex flex-col items-center relative overflow-hidden">
+               {initialData?.associatedGroup && (
+                   <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                       <div className="bg-secondary/90 px-4 py-2 rounded-lg border border-border text-xs font-bold text-muted-foreground flex items-center gap-2">
+                            <Lock size={12} />
+                            <span>Locked by Squad Goal</span>
+                       </div>
+                   </div>
+               )}
 
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-32 bg-transparent text-center text-5xl font-bold text-foreground focus:outline-none placeholder:text-muted"
-                  />
-                </div>
-
-                <button
-                  onClick={() => setDuration(prev => prev + 1)}
-                  className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors"
-                >
-                  <Plus size={18} />
-                </button>
-             </div>
-             
-             {/* Divider & Label */}
-             <div className="w-16 h-1 bg-primary rounded-full mb-3 opacity-80"></div>
-             <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-8">
-               Days Target
-             </p>
-
-             {/* Presets */}
-             <div className="flex gap-3 w-full justify-center">
-               {[21, 48, 66].map((days) => (
-                 <button
-                   key={days}
-                   onClick={() => setDuration(days)}
-                   className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                     duration === days
-                       ? 'bg-primary text-primary-foreground shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
-                       : 'bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
-                   }`}
-                 >
-                   {days} Days
-                 </button>
-               ))}
+               {/* Large Input Display with Controls */}
+               <div className="flex items-center gap-6 mb-2">
+                  <button
+                    onClick={() => setDuration(prev => Math.max(1, prev - 1))}
+                    disabled={!!initialData?.associatedGroup} // Disable
+                    className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-50"
+                  >
+                    <Minus size={18} />
+                  </button>
+  
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      value={duration}
+                      disabled={!!initialData?.associatedGroup} // Disable
+                      onChange={(e) => setDuration(Number(e.target.value))}
+                      className="w-32 bg-transparent text-center text-5xl font-bold text-foreground focus:outline-none placeholder:text-muted disabled:text-muted-foreground"
+                    />
+                  </div>
+  
+                  <button
+                    onClick={() => setDuration(prev => prev + 1)}
+                    disabled={!!initialData?.associatedGroup} // Disable
+                    className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground hover:text-primary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={18} />
+                  </button>
+               </div>
+               
+               {/* Divider & Label */}
+               <div className="w-16 h-1 bg-primary rounded-full mb-3 opacity-80"></div>
+               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium mb-8">
+                 Days Target
+               </p>
+  
+               {/* Presets */}
+               <div className="flex gap-3 w-full justify-center">
+                 {[21, 48, 66].map((days) => (
+                   <button
+                     key={days}
+                     onClick={() => setDuration(days)}
+                     disabled={!!initialData?.associatedGroup} // Disable
+                     className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 disabled:opacity-50 ${
+                       duration === days
+                         ? 'bg-primary text-primary-foreground shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
+                         : 'bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground'
+                     }`}
+                   >
+                     {days} Days
+                   </button>
+                 ))}
+               </div>
              </div>
            </div>
-         </div>
 
         {/* Start Habit Button */}
         <button

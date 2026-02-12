@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus, Flame, Share2, MessageCircle } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus, Flame, Share2, MessageCircle, AlertCircle, Snowflake } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-type Screen = "habits" | "create" | "profile" | "social";
+type Screen = "habits" | "create" | "profile" | "social" | "groups" | "create-group" | "group-details" | "invite-friend" | "privacy-policy";
 
 // Types needed for habits to calculate progress
 interface UIHabit {
@@ -41,23 +41,58 @@ interface Friend {
   streak: number;
   isOnline: boolean;
   friendCode: string;
+
   completedToday: boolean;
+  streakState?: 'active' | 'frozen' | 'extinguished';
+  hasReactedToday?: boolean;
+}
+
+interface SuggestedFriend {
+  _id: string;
+  displayName: string;
+  username: string;
+  friendCode: string;
+  streak: number;
+  mutualFriends: number;
+}
+
+interface Notification {
+    _id: string;
+    type: 'incomplete_habits' | 'lost_streak';
+    data: {
+        friendId: string;
+        friendName: string;
+        count?: number;
+        date: string;
+    };
+    read: boolean;
+    createdAt: string;
+    read: boolean;
+    createdAt: string;
+}
+
+interface ReceivedReaction {
+    fromUser: string;
+    fromName: string;
+    date: string;
 }
 
 interface Group {
   _id: string;
   name: string;
+  members: any[];
+  creator: any;
+  isCreator?: boolean; // Added for transfer ownership
+  trackingType: string;
+  duration: number;
   avatar: string;
-  daysToGoal: number;
-  description: string;
-  members: { 
-    _id: string; 
-    displayName: string; 
-    username: string; 
-    streak?: number;
-    linkedHabit?: { name: string; completedToday: boolean; } | null;
-  }[];
-  creator: string;
+  description?: string;
+  groupType?: string;
+  isPrivate?: boolean;
+  capacity?: number;
+  stakeAmount?: number;
+  startDate?: string;
+  groupCode?: string;
   groupStreak?: number;
 }
 
@@ -67,6 +102,8 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showGroupTransferModal, setShowGroupTransferModal] = useState(false);
+  const [selectedTransferMemberId, setSelectedTransferMemberId] = useState<string | null>(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [friendCode, setFriendCode] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -83,7 +120,7 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [duration, setDuration] = useState(30);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number} | null>(null);
+  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number; receivedReactions?: ReceivedReaction[]} | null>(null);
   const [copied, setCopied] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState<boolean>(true);
@@ -91,6 +128,9 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   const [searchingFriend, setSearchingFriend] = useState<boolean>(false);
   const [selectedFriendForHabits, setSelectedFriendForHabits] = useState<Friend | null>(null);
   const [showFriendHabitsModal, setShowFriendHabitsModal] = useState(false);
+  const [suggestedFriends, setSuggestedFriends] = useState<SuggestedFriend[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Confirmation Dialog State
   const [confirmation, setConfirmation] = useState<{
@@ -110,10 +150,11 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
   });
 
   // Fetch Friends
+  // Fetch Friends
   useEffect(() => {
-    const fetchFriends = async () => {
+    const fetchFriends = async (isBackground = false) => {
         try {
-            setFriendsLoading(true);
+            if (!isBackground) setFriendsLoading(true);
             const res = await api.get("/friends");
             const mappedFriends = res.data.map((f: any) => {
                 // FIX: Use local date parts to avoid UTC shift problems for "Today"
@@ -146,14 +187,17 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
                     streak: f.streak || 0,
                     isOnline: false, // Could implement real online status later
                     friendCode: f.friendCode,
-                    completedToday: isCompletedToday
+
+                    completedToday: isCompletedToday,
+                    streakState: f.streakState, // Map from backend
+                    hasReactedToday: f.hasReactedToday // Map from backend
                 };
             });
             setFriends(mappedFriends);
         } catch (err) {
             console.error("Failed to fetch friends", err);
         } finally {
-            setFriendsLoading(false);
+            if (!isBackground) setFriendsLoading(false);
         }
     };
 
@@ -161,10 +205,43 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
     fetchFriends();
 
     // Poll every 10 seconds for real-time updates
-    const intervalId = setInterval(fetchFriends, 10000);
+    const intervalId = setInterval(() => fetchFriends(true), 10000);
 
     return () => clearInterval(intervalId);
   }, []);
+
+  // Fetch Notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+        try {
+            const res = await api.get("/notifications");
+            setNotifications(res.data);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        }
+    };
+    fetchNotifications();
+  }, []);
+
+  // Fetch Suggested Friends
+  useEffect(() => {
+    const fetchSuggestedFriends = async () => {
+      try {
+        setSuggestionsLoading(true);
+        const res = await api.get("/friends/suggestions");
+        setSuggestedFriends(res.data);
+      } catch (err) {
+        console.error("Failed to fetch suggested friends", err);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    };
+    
+    // Only fetch suggestions after friends are loaded
+    if (!friendsLoading) {
+      fetchSuggestedFriends();
+    }
+  }, [friendsLoading]);
 
   const copyFriendCode = () => {
     if (userProfile?.friendCode) {
@@ -183,6 +260,30 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
       toast.success("Friend removed");
     } catch (err: any) {
         toast.error(err.response?.data?.message || "Failed to remove friend");
+    }
+  };
+
+  const handleFireReaction = async (friendId: string) => {
+    // Optimistic Update
+    setFriends(prev => prev.map(f => {
+        if (f.id === friendId) {
+            return { ...f, hasReactedToday: true };
+        }
+        return f;
+    }));
+
+    try {
+        await api.post("/friends/react", { friendId });
+        toast.success("Fire reaction sent! 🔥");
+    } catch (err: any) {
+        // Revert on failure
+        setFriends(prev => prev.map(f => {
+            if (f.id === friendId) {
+                return { ...f, hasReactedToday: false };
+            }
+            return f;
+        }));
+        toast.error(err.response?.data?.message || "Failed to send reaction");
     }
   };
 
@@ -240,8 +341,11 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
 
 
 
-  // Filter friends who completed all habits today
-  const dailyGoalFriends = friends.filter(f => f.completedToday);
+  // Filter friends who completed all habits today (Full Flame / active streakState)
+  // We use streakState === 'active' because that implies 100% completion for today.
+  // Fallback to completedToday if streakState is missing (legacy/compat), though completedToday might be true for partials if not careful, 
+  // but let's trust streakState mostly.
+  const dailyGoalFriends = friends.filter(f => f.streakState === 'active');
 
   // Dummy data removed
   // const dailyGoalFriends = [
@@ -296,9 +400,9 @@ export function SocialScreen({ onNavigate, habits = [] }: SocialScreenProps) {
     if (!userProfile?.friendCode) return;
     
     // Exact text as requested
-    const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${userProfile.friendCode} to add me as your friend!`;
-    const shareUrl = "https://atomiq.club";
+    // Exact text as requested (Unified with Profile)
+    const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends🔥\nOnce you sign up, we’ll be connected automatically. \n`;
+    const shareUrl = `https://atomiq.club/invite/${userProfile.friendCode}`;
     const shareTitle = "Join Atomiq with me";
 
     const shareData = {
@@ -333,12 +437,9 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
 
   const handleWhatsAppShare = () => {
     if (!userProfile?.friendCode) return;
-    const shareText = `I’m trying this habit app called Atomiq.
-It turns daily habits into streaks and lets friends track together🔥 \n Use my code ${userProfile.friendCode} to add me as your friend!`;
-    const shareUrl = "https://atomiq.club";
-    // Construct text with newlines if needed, usually WhatsApp web handles space/newline encoding 
-    const fullText = `${shareText} ${shareUrl}`;
-    const encodedText = encodeURIComponent(fullText);
+    const shareText = `I’m using Atomiq to track daily habits and stay consistent with friends 🔥\nJoin me here: https://atomiq.club/invite/${userProfile.friendCode}\nOnce you sign up, we’ll be connected automatically.`;
+    
+    const encodedText = encodeURIComponent(shareText);
     
     // Using window.open for universal link
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
@@ -360,6 +461,71 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
         </div>
 
 
+
+        {/* Fire Reactions Feed */}
+        {userProfile?.receivedReactions && userProfile.receivedReactions.length > 0 && (
+            <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: "spring", bounce: 0.4 }}
+                className="bg-card-bg rounded-2xl p-4 border border-card-border mb-6 relative overflow-hidden shadow-sm"
+            >
+                 <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                     <Flame size={48} className="text-orange-500 fill-orange-500" />
+                 </div>
+                 <div className="flex items-start gap-3 relative z-10">
+                     <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
+                         <Flame className="text-orange-500 fill-orange-500" size={20} />
+                     </div>
+                     <div>
+                         <h3 className="font-bold text-foreground text-base mb-1">Your Crew is Fired Up</h3>
+                         <p className="text-sm text-muted-foreground">
+                             <span className="text-orange-500 font-medium">
+                                 {(() => {
+                                     const names = userProfile.receivedReactions.map(r => r.fromName);
+                                     if (names.length === 0) return "";
+                                     if (names.length === 1) return names[0];
+                                     if (names.length === 2) return `${names[0]} and ${names[1]}`;
+                                     return `${names[0]}, ${names[1]} and ${names.length - 2} others`;
+                                 })()}
+                             </span>
+                             {" reacted to your progress!"}
+                         </p>
+                     </div>
+                 </div>
+            </motion.div>
+        )}
+
+        {/* Notifications */}
+        {notifications.length > 0 && (
+            <div className="mb-6 space-y-3">
+                {notifications.map((notification) => (
+                    <div 
+                        key={notification._id}
+                        className="bg-card-bg rounded-2xl p-4 border border-card-border flex items-center gap-4 relative overflow-hidden shadow-sm"
+                    >
+                        {/* Accent Bar */}
+                        <div className={`w-1 h-8 rounded-full ${
+                            notification.type === 'incomplete_habits' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        
+                        {/* Content */}
+                        <p className="text-sm font-medium text-foreground">
+                            <span className={notification.type === 'incomplete_habits' ? 'text-yellow-500' : 'text-red-500'}>
+                                {notification.data.friendName}
+                            </span>
+                            <span className="text-muted-foreground">
+                                {notification.type === 'incomplete_habits' 
+                                    ? ' has incomplete habits.' 
+                                    : ` lost a ${notification.data.count || 0}-day streak.`
+                                }
+                            </span>
+                            {notification.type === 'lost_streak' && <span className="ml-2">❄️</span>}
+                        </p>
+                    </div>
+                ))}
+            </div>
+        )}
 
         {/* Daily Goal */}
         {/* Daily Goal (Redesigned) */}
@@ -383,93 +549,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
             <div className="w-2 h-2 rounded-full bg-orange-500/80 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
         </div>
 
-        {/* Group Shared Streak - Swipeable Carousel */}
-        <div className="bg-card-bg rounded-2xl p-5 mb-4 border border-card-border relative overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-              Your Squads
-            </p>
-            <button
-              onClick={() => setShowCreateSquad(true)}
-              className="text-xs text-primary font-semibold px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20 hover:bg-primary/20 transition-colors"
-            >
-              Create Squad
-            </button>
-          </div>
 
-          {/* Carousel Container with Peek */}
-          <div className="relative -mx-5 px-5 overflow-visible">
-            {groupsLoading ? (
-              <GroupsCarouselSkeleton />
-            ) : groups.length === 0 ? (
-                 <div className="bg-card-bg rounded-2xl p-6 border border-card-border text-center mx-1 shadow-sm">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                        <Users className="text-primary" size={24} />
-                    </div>
-                    <h3 className="font-bold text-foreground mb-1">Join a Squad</h3>
-                    <p className="text-sm text-muted-foreground mb-4">You haven't joined any squads yet. Create one with your friends!</p>
-                    <button
-                        onClick={() => setShowCreateSquad(true)}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-xl text-sm font-semibold transition-colors"
-                    >
-                        Create Your First Squad
-                    </button>
-                 </div>
-            ) : (
-            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
-              style={{ scrollSnapType: 'x mandatory' }}
-            >
-              {groups.map((group) => (
-                <motion.div
-                  key={group._id}
-                  className="flex-shrink-0 w-[85%] snap-center"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="bg-card-bg rounded-2xl p-5 border border-card-border shadow-lg">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-bold text-lg text-foreground mb-1">{group.name}</h3>
-                        <p className="text-[10px] font-extrabold text-primary uppercase tracking-wider">ACTIVE SQUAD</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 bg-background px-3 py-1.5 rounded-full border border-card-border">
-                        <span className="text-sm font-bold text-foreground">{group.groupStreak || 0} days</span>
-                        <span className="text-sm">🔥</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex -space-x-3">
-                        {group.members && group.members.slice(0, 3).map((member) => (
-                           <div key={member._id} className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs font-bold text-muted-foreground uppercase">
-                            {member.displayName.charAt(0)}
-                           </div>
-                        ))}
-                        {group.members && group.members.length > 3 && (
-                            <div className="w-8 h-8 rounded-full bg-muted border-2 border-background flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
-                                +{group.members.length - 3}
-                            </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        setSelectedGroup(group);
-                        setShowGroupDetails(true);
-                      }}
-                      className="w-full bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary rounded-xl py-3 text-sm font-bold transition-colors"
-                    >
-                      View Squad
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-            )}
-          </div>
-        </div>
 
         {/* Your Friends */}
         <div>
@@ -522,7 +602,29 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                       </p>
                     </div>
                   </div>
-                  <div className="relative">
+                  <div className="relative flex items-center gap-2">
+                    <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        whileHover={{ scale: 1.05 }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleFireReaction(friend.id);
+                        }}
+                        disabled={friend.hasReactedToday}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                            friend.hasReactedToday 
+                            ? "bg-orange-500/20 text-orange-500 border border-orange-500/50 cursor-default"
+                            : "bg-secondary text-muted-foreground hover:bg-orange-500/10 hover:text-orange-500"
+                        }`}
+                    >
+                        <motion.div
+                            animate={friend.hasReactedToday ? { scale: [1, 1.2, 1], rotate: [0, 15, -15, 0] } : {}}
+                            transition={{ duration: 0.4 }}
+                        >
+                            <Flame size={12} className={friend.hasReactedToday ? "fill-orange-500" : ""} />
+                        </motion.div>
+                        {friend.hasReactedToday ? "Reacted" : "React"}
+                    </motion.button>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -553,6 +655,110 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
             )}
           </div>
         </div>
+
+        {/* Discover Friends */}
+        {!friendsLoading && suggestedFriends.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-foreground">Discover Friends</h2>
+              {suggestedFriends.length > 3 && (
+                <button className="text-sm text-primary font-semibold">View all</button>
+              )}
+            </div>
+            
+            {suggestionsLoading ? (
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="min-w-[160px] bg-card-bg rounded-2xl p-4 border border-card-border animate-pulse">
+                    <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-3" />
+                    <div className="h-4 bg-muted rounded mb-2" />
+                    <div className="h-3 bg-muted rounded w-3/4 mx-auto" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory">
+                {suggestedFriends.map((suggestion, index) => {
+                  // Generate varied gradient colors based on index to avoid all blue
+                  const gradients = [
+                    'from-violet-500 via-purple-500 to-fuchsia-500',
+                    'from-amber-500 via-orange-500 to-red-500',
+                    'from-emerald-500 via-teal-500 to-cyan-500',
+                    'from-rose-500 via-pink-500 to-purple-500',
+                    'from-blue-500 via-indigo-500 to-violet-500',
+                    'from-green-500 via-emerald-500 to-teal-500',
+                    'from-yellow-500 via-amber-500 to-orange-500',
+                    'from-cyan-500 via-sky-500 to-blue-500',
+                  ];
+                  const gradient = gradients[index % gradients.length];
+                  
+                  return (
+                    <div
+                      key={suggestion._id}
+                      className="min-w-[170px] snap-center bg-gradient-to-br from-card-bg/90 to-card-bg/50 backdrop-blur-xl rounded-3xl p-5 border border-card-border/50 active:border-primary/60 transition-all duration-200 shadow-lg active:shadow-xl active:shadow-primary/10 flex flex-col items-center group relative overflow-hidden active:scale-[0.98]"
+                    >
+                      {/* Avatar with varied gradients */}
+                      <div className="relative mb-4">
+                        <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl font-black text-white border-4 border-background shadow-xl relative z-10`}>
+                          {suggestion.displayName.charAt(0).toUpperCase()}
+                        </div>
+                        {/* Subtle glow effect */}
+                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${gradient} blur-xl opacity-40`} />
+                      </div>
+                      
+                      {/* Name */}
+                      <p className="font-bold text-base text-foreground text-center mb-1 truncate w-full px-1 relative z-10">
+                        {suggestion.displayName}
+                      </p>
+                      
+                      {/* Mutual friends with icon */}
+                      <div className="flex items-center gap-1 mb-4 relative z-10">
+                        <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {suggestion.mutualFriends} mutual{suggestion.mutualFriends !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      
+                      {/* Modern Add button */}
+                      <button
+                        onClick={async () => {
+                          try {
+                            await api.post("/friends/add", { friendId: suggestion._id });
+                            toast.success(`Added ${suggestion.displayName}!`);
+                            
+                            // Remove from suggestions
+                            setSuggestedFriends(prev => prev.filter(s => s._id !== suggestion._id));
+                            
+                            // Add to friends list
+                            const newFriend: Friend = {
+                              id: suggestion._id,
+                              name: suggestion.displayName,
+                              emoji: "😎",
+                              streak: suggestion.streak,
+                              isOnline: false,
+                              friendCode: suggestion.friendCode,
+                              completedToday: false,
+                              streakState: 'extinguished'
+                            };
+                            setFriends(prev => [...prev, newFriend]);
+                          } catch (err: any) {
+                            toast.error(err.response?.data?.message || "Failed to add friend");
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-primary to-primary/90 active:from-primary/80 active:to-primary/70 text-primary-foreground rounded-2xl py-2.5 px-4 font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-primary/20 active:shadow-xl active:shadow-primary/30 relative z-10"
+                      >
+                        <Plus size={18} />
+                        Add
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Squad Modal */}
@@ -948,8 +1154,20 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                     <UserPlus size={18} className="text-muted-foreground" />
                     <span className="text-sm text-foreground">Invite More Friends</span>
                   </button>
-                  {selectedGroup.creator === userProfile?.id ? (
-                      <button 
+                  {selectedGroup.isCreator ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                               if (!selectedGroup) return;
+                               // Show transfer modal (we'll add this state)
+                               setShowGroupTransferModal(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-3 hover:bg-white/5 transition-colors text-primary"
+                        >
+                          <Users size={18} className="text-primary" />
+                          <span className="text-sm text-foreground">Transfer Ownership</span>
+                        </button>
+                        <button 
                         onClick={() => {
                              if (!selectedGroup) return;
                              setConfirmation({
@@ -982,6 +1200,7 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
                         <Trash2 size={18} />
                         <span className="text-sm">Delete Squad</span>
                       </button>
+                      </>
                   ) : (
                       <button 
                          onClick={() => {
@@ -1588,6 +1807,97 @@ It turns daily habits into streaks and lets friends track together🔥 \n Use my
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+      {/* TRANSFER OWNERSHIP MODAL */}
+      {showGroupTransferModal && selectedGroup && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-5">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowGroupTransferModal(false)} />
+          
+          <div className="relative w-full max-w-sm bg-card-bg border border-card-border rounded-3xl p-6 shadow-2xl">
+            <button 
+              onClick={() => setShowGroupTransferModal(false)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            >
+              <X size={20} />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Users size={32} className="text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Transfer Ownership</h3>
+              <p className="text-sm text-muted-foreground">
+                Select a member to become the new squad creator
+              </p>
+            </div>
+
+            {/* Member List */}
+            <div className="mb-6 max-h-64 overflow-y-auto space-y-2">
+              {selectedGroup.members
+                .filter((member: any) => {
+                  const creatorId = typeof selectedGroup.creator === 'object' ? selectedGroup.creator._id : selectedGroup.creator;
+                  return member._id.toString() !== creatorId.toString();
+                })
+                .map((member: any) => (
+                  <button
+                    key={member._id}
+                    onClick={() => setSelectedTransferMemberId(member._id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                      selectedTransferMemberId === member._id
+                        ? 'bg-primary/10 border-primary'
+                        : 'bg-card-bg border-card-border hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-bold">
+                      {member.displayName?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-sm text-foreground">{member.displayName}</p>
+                      <p className="text-xs text-muted-foreground">{member.streak || 0}d streak</p>
+                    </div>
+                    {selectedTransferMemberId === member._id && (
+                      <Check size={20} className="text-primary" />
+                    )}
+                  </button>
+                ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowGroupTransferModal(false);
+                  setSelectedTransferMemberId(null);
+                }}
+                className="flex-1 bg-secondary hover:bg-secondary/80 text-foreground font-bold py-3 rounded-xl transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedTransferMemberId || !selectedGroup) return;
+                  try {
+                    await api.put(`/groups/${selectedGroup._id}/transfer-ownership`, {
+                      newCreatorId: selectedTransferMemberId
+                    });
+                    toast.success('Ownership transferred successfully');
+                    setShowGroupTransferModal(false);
+                    setSelectedTransferMemberId(null);
+                    setShowGroupDetails(false);
+                    setShowGroupMenu(false);
+                    setSelectedGroup(null);
+                  } catch (err: any) {
+                    toast.error(err.response?.data?.message || 'Failed to transfer ownership');
+                  }
+                }}
+                disabled={!selectedTransferMemberId}
+                className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold py-3 rounded-xl transition-all disabled:cursor-not-allowed"
+              >
+                Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Friend Habits Modal */}
       <FriendHabitsModal

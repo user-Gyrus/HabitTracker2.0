@@ -35,7 +35,6 @@ export async function checkAndResetGroupStreaks() {
                     if (anyMemberBrokeStreak && group.groupStreak > 0) {
                         group.groupStreak = 0;
                         await group.save();
-                        console.log(`[GroupStreak] Reset streak for group ${group.name}`);
                     }
                 }
             }

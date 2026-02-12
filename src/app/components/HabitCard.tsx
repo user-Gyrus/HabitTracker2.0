@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Check, RotateCcw, Pencil } from 'lucide-react';
+import { Trash2, Check, RotateCcw, Pencil, Users } from 'lucide-react';
 
 interface Habit {
   id: string;
+  _id?: string;
   microIdentity: string;
   name: string;
   progress: number; // Current day of the journey (e.g. 4)
   goal: number; // Total duration (e.g. 21)
   completed: boolean;
+  associatedGroup?: string; // ID of squad
 }
 
 interface HabitCardProps {
@@ -81,10 +83,20 @@ export function HabitCard({ habit, onComplete, onUndo, onEdit, onDelete }: Habit
       onTouchStart={startHold}
       onTouchEnd={endHold}
       className={`
-        bg-card-bg rounded-2xl p-4 flex items-center gap-4 border shadow-sm group relative overflow-hidden select-none cursor-pointer transition-colors
+        bg-card-bg rounded-2xl p-4 flex items-center gap-4 border shadow-sm group relative overflow-visible select-none cursor-pointer transition-colors
         ${habit.completed ? 'border-card-border/50' : 'border-card-border'}
       `}
     >
+        {/* SQUAD BADGE (75% in, 25% out) - Top Right */}
+        {habit.associatedGroup && (
+            <div 
+                className="absolute left-1 -top-3 w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/30 flex items-center justify-center z-20 border-2 border-background"
+                style={{ transform: 'translate(-20%, 20%)' }}
+            >
+                <Users size={14} className="text-white" strokeWidth={2.5} />
+            </div>
+        )}
+        
         {/* Global Progress Fill (Background) */}
         {/* DIFFERENT COLORS FOR COMPLETE vs UNDO */}
         <motion.div 

@@ -160,3 +160,52 @@ export function ProfileStatsSkeleton() {
     </div>
   );
 }
+
+/**
+ * Loading skeleton for squad cards in GroupsScreen
+ */
+export function SquadCardSkeleton() {
+  return (
+    <div className="bg-card-bg/80 backdrop-blur-md border border-card-border/50 rounded-[2rem] p-5 relative overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
+      {/* Subtle Gradient Glow */}
+      <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
+      
+      <div className="flex items-center justify-between mb-6 relative z-10">
+        <div className="flex items-center gap-5">
+          {/* Progress Circle */}
+          <Skeleton className="w-14 h-14 rounded-full" />
+          
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        
+        {/* Rank/Pot Badge */}
+        <Skeleton className="h-10 w-20 rounded-full" />
+      </div>
+      
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center -space-x-2 pl-2">
+          <Skeleton className="w-8 h-8 rounded-full" />
+          <Skeleton className="w-8 h-8 rounded-full" />
+          <Skeleton className="w-8 h-8 rounded-full" />
+        </div>
+        
+        <Skeleton className="h-10 w-20 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Loading skeleton for squad list in GroupsScreen
+ */
+export function SquadsListSkeleton() {
+  return (
+    <div className="space-y-5">
+      <SquadCardSkeleton />
+      <SquadCardSkeleton />
+    </div>
+  );
+}
