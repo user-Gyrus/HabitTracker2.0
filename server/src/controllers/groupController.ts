@@ -84,10 +84,9 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
 
         // 2. Fetch Habit documents for linked habits (including completions for streak calculation)
         const habitDocs = await Habit.find({ _id: { $in: Array.from(uniqueHabitIds) } });
-        const habitMap: { [key: string]: { name: string, completedToday: boolean, completions: any[] } } = {};
-        
-        // Get IST Dates
         const todayIST = getISTDate();
+        // habitMap needs to store owner ID as well
+        const habitMap: { [key: string]: { name: string, completedToday: boolean, completions: any[], owner?: string } } = {};
         const dateObj = new Date();
         // Adjust for IST manually if needed or use simple logic since getISTDate returns YYYY-MM-DD
         // Better to parse the String from getISTDate or use ISO
@@ -106,7 +105,8 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             habitMap[doc._id.toString()] = {
                 name: doc.name,
                 completedToday: doc.completions && doc.completions.includes(todayIST),
-                completions: doc.completions || [] // Full array for streak calculation
+                completions: doc.completions || [], // Full array for streak calculation
+                owner: doc.user?.toString() // Added owner check
             };
         });
 
@@ -117,14 +117,7 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             if (group.memberHabits) {
                 group.memberHabits.forEach((mh: any) => {
                     if (mh.habit && mh.user) {
-                         // DEBUG LOG (Safe)
-                        if (group.name === "Staked Club") {
-                            // To avoid circular structure or crash, just log ID strings
-                            const uId = mh.user.toString ? mh.user.toString() : mh.user;
-                            const hId = mh.habit.toString ? mh.habit.toString() : mh.habit;
-                            console.log(`[getUserGroups] Staked Club MemberHabit: User=${uId}, Habit=${hId}`);
-                        }
-                        groupMemberHabits[mh.user.toString()] = mh.habit.toString();
+                         groupMemberHabits[mh.user.toString()] = mh.habit.toString();
                     }
                 });
             }
@@ -135,33 +128,41 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
             let totalLinked = 0; // Track how many have linked habits
 
             if (group.members && Array.isArray(group.members)) {
+                // CLONE MEMBERS: Crucial to prevent data leak between groups sharing members
+                group.members = group.members.map((m: any) => ({ ...m }));
+
                 group.members.forEach((member: any) => {
                     if (!member || !member._id) return;
                     const memberId = member._id.toString();
                     
                     // Calculate habit-specific streak for this member
                     const linkedHabitId = groupMemberHabits[memberId];
-                    
-                    if (group.name === "Staked Club") {
-                         console.log(`[getUserGroups] checking Member: ${member.displayName} (${memberId}). LinkedHabitId found: ${linkedHabitId || 'NONE'}`);
-                    }
-
                     if (linkedHabitId && habitMap[linkedHabitId]) {
-                        // Use calculateHabitStreak instead of personal streak
-                        member.streak = calculateHabitStreak(habitMap[linkedHabitId].completions);
-                        
-                        member.linkedHabit = {
-                            name: habitMap[linkedHabitId].name,
-                            completedToday: habitMap[linkedHabitId].completedToday
-                        };
-                        hasAnyLinkedHabit = true;
-                        totalLinked++; // Count members with linked habits
-                        
-                        // Check if THIS member completed today
-                        if (habitMap[linkedHabitId].completedToday) {
-                            completedCount++; // Count completed today
+                        // VERIFY OWNERSHIP: Ensure habit actually belongs to member
+                        const habitOwnerId = habitMap[linkedHabitId].owner;
+                        if (habitOwnerId && habitOwnerId !== memberId) {
+                            // Mismatch! This habit does not belong to this user. Treat as not linked.
+                             console.warn(`[getUserGroups] Habit ownership mismatch for user ${memberId}. Linked habit ${linkedHabitId} belongs to ${habitOwnerId}`);
+                             member.streak = 0;
+                             member.linkedHabit = null;
+                             allMembersCompletedToday = false;
                         } else {
-                            allMembersCompletedToday = false;
+                            // Use calculateHabitStreak instead of personal streak
+                            member.streak = calculateHabitStreak(habitMap[linkedHabitId].completions);
+                            
+                            member.linkedHabit = {
+                                name: habitMap[linkedHabitId].name,
+                                completedToday: habitMap[linkedHabitId].completedToday
+                            };
+                            hasAnyLinkedHabit = true;
+                            totalLinked++; // Count members with linked habits
+                            
+                            // Check if THIS member completed today
+                            if (habitMap[linkedHabitId].completedToday) {
+                                completedCount++; // Count completed today
+                            } else {
+                                allMembersCompletedToday = false;
+                            }
                         }
                     } else {
                         // No linked habit = 0 streak
@@ -316,6 +317,11 @@ export const leaveGroup = async (req: any, res: Response, next: NextFunction): P
         // Remove user from members
         group.members = group.members.filter(m => m.toString() !== req.user._id.toString());
         
+        // Remove user from memberHabits (Clean up linked habit data for this squad)
+        if (group.memberHabits) {
+            group.memberHabits = group.memberHabits.filter((mh: any) => mh.user.toString() !== req.user._id.toString());
+        }
+
         if (group.members.length === 0) {
             await Group.findByIdAndDelete(groupId);
             res.status(200).json({ message: "Left group successfully. Squad deleted as it is now empty." });
@@ -605,7 +611,9 @@ export const getGroupById = async (req: any, res: Response, next: NextFunction):
         const isCreator = req.user._id.toString() === creatorId.toString();
         
         // Is MY habit linked?
-        const myHabitId = groupMemberHabits[req.user._id.toString()];
+        const myHabitId = groupMemberHabits && req.user ? groupMemberHabits[req.user._id.toString()] : null;
+        
+
         const myLinkedHabit = myHabitId && habitMap[myHabitId] ? {
              _id: myHabitId,
              name: habitMap[myHabitId].name,

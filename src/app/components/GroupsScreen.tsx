@@ -43,6 +43,11 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
         }
         
         // Calculate pot for staked groups (Dynamic: Total Pot / Survivors)
+        // Check if current user has linked a habit to this squad (moved up to be used in pot logic)
+        const currentUserMember = currentUserId ? group.members.find((m: any) => m._id === currentUserId || m._id.toString() === currentUserId) : null;
+        const hasLinkedHabit = currentUserMember ? !!currentUserMember.linkedHabit : false;
+
+        // Calculate pot for staked groups (Dynamic: Total Pot / Survivors)
         let pot = null;
         if (group.groupType === "staked" && group.stakeAmount) {
             const totalPot = group.stakeAmount * group.members.length;
@@ -57,9 +62,18 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
             // If they just joined, streak might be 0 but they haven't linked yet.
             // Let's rely on the controller logic: "No linked habit = 0 streak".
             // So filtering by `m.streak > 0` is safe and correct.
-            const survivors = group.members.filter((m: any) => m.streak > 0).length;
+            // Wait, user says they are seeing > 0 share even though they haven't linked.
+            // This means they have a streak > 0 without a linked habit. 
+            // We MUST check `linkedHabit` explicitly.
+            const survivors = group.members.filter((m: any) => (m.streak || 0) > 0 && !!m.linkedHabit).length;
             
-            pot = survivors > 0 ? Math.floor(totalPot / survivors) : 0;
+            // Potential share for a survivor
+            const share = survivors > 0 ? Math.floor(totalPot / survivors) : 0;
+            
+            // User share: If user is a survivor, show share. Else show 0.
+            // User specifically requested: "if the share received by the user is 0, then show it as 0"
+            const isSurvivor = currentUserMember && (currentUserMember.streak > 0) && !!currentUserMember.linkedHabit;
+            pot = isSurvivor ? share : 0;
         }
         
         // Calculate user's rank based on streak (members are already sorted by streak from backend)
@@ -75,10 +89,6 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
         const completedToday = group.completedCount || 0;
         const totalMembers = group.members.length;
         const habitProgress = totalMembers > 0 ? completedToday / totalMembers : 0;
-        
-        // Check if current user has linked a habit to this squad
-        const currentUserMember = currentUserId ? group.members.find((m: any) => m._id === currentUserId || m._id.toString() === currentUserId) : null;
-        const hasLinkedHabit = currentUserMember ? !!currentUserMember.linkedHabit : false;
         
           
           const startDate = group.startDate ? new Date(group.startDate) : new Date(group.createdAt);
@@ -241,7 +251,7 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
 
 
                     {/* Badge: Pot for staked groups, Rank for normal groups */}
-                    {squad.pot ? (
+                    {squad.pot !== null ? (
                          <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-full px-4 py-1.5 flex items-center gap-2 backdrop-blur-sm shadow-lg shadow-yellow-500/10">
                             <svg className="w-3.5 h-3.5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor">
                                 <circle cx="12" cy="12" r="10" />
@@ -249,7 +259,7 @@ export function GroupsScreen({ onNavigate, onSelectGroup }: GroupsScreenProps) {
                             </svg>
                             <div className="flex flex-col leading-none">
                                 <span className="text-xs text-yellow-700 dark:text-yellow-500 font-extrabold">₹{squad.pot}</span>
-                                <span className="text-[8px] text-yellow-700/70 dark:text-yellow-500/70 font-semibold uppercase">Pot</span>
+                                <span className="text-[8px] text-yellow-700/70 dark:text-yellow-500/70 font-semibold uppercase">Pot Share</span>
                             </div>
                          </div>
                     ) : squad.rank ? (
