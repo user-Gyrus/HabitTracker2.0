@@ -1,7 +1,7 @@
 # Atomiq v2 🚀
 **"Don't Break the Chain"**
 
-Atomiq is a premium, gamified habit tracker designed to help you build and sustain positive habits through social accountability and powerful visualization. Built as a Progressive Web App (PWA), it offers a native-app-like experience across all your devices.
+Atomiq is the premium, gamified habit tracker designed to help you build and sustain positive habits through social accountability and powerful visualization. Built as a Progressive Web App (PWA), it offers a native-app-like experience across all your devices.
 
 ## 🔥 Key Features
 
